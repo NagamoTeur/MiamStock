@@ -76,12 +76,34 @@ la caméra malgré le HTTPS.
 
 ## Déploiement sur Proxmox
 
+### Donner au LXC l'accès au dépôt
+
+Le dépôt est privé : le conteneur a besoin de ses propres identifiants. Une
+**clé de déploiement** est préférable à un jeton personnel — elle est en lecture
+seule, limitée à ce seul dépôt, et se révoque sans toucher au reste du compte.
+
+Dans le LXC :
+
+```bash
+ssh-keygen -t ed25519 -C "miamstock-lxc" -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub
+```
+
+Puis, depuis une machine où `gh` est connecté (ou via Settings → Deploy keys
+sur GitHub), en collant la clé publique affichée :
+
+```bash
+gh repo deploy-key add cle.pub --title "proxmox-lxc" --repo NagamoTeur/MiamStock
+```
+
+Laisse la case « Allow write access » décochée : le conteneur n'a qu'à lire.
+
 ### Avec Docker (recommandé)
 
 Dans un LXC Debian avec Docker, ou une VM :
 
 ```bash
-git clone <ton-dépôt> /opt/miamstock && cd /opt/miamstock
+git clone git@github.com:NagamoTeur/MiamStock.git /opt/miamstock && cd /opt/miamstock
 cp .env.example .env && nano .env      # définis au moins MIAMSTOCK_PIN
 docker compose up -d --build
 tailscale serve --bg 8077
@@ -97,7 +119,7 @@ service, pas Docker. La base vit dans `./data`, monté en volume.
 
 ```bash
 sudo adduser --system --group --home /var/lib/miamstock miam
-sudo git clone <ton-dépôt> /opt/miamstock
+sudo git clone git@github.com:NagamoTeur/MiamStock.git /opt/miamstock
 cd /opt/miamstock
 python3 -m venv .venv && .venv/bin/pip install .
 npm --prefix web ci && npm --prefix web run build
