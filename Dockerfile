@@ -25,14 +25,21 @@ ENV MIAMSTOCK_WEB_DIST=/app/web/dist \
     MIAMSTOCK_PORT=8077 \
     PYTHONUNBUFFERED=1
 
-RUN useradd --system --uid 10001 --home-dir /data miam \
+RUN useradd --uid 10001 --no-create-home --home-dir /data --shell /usr/sbin/nologin miam \
     && mkdir -p /data \
     && chown -R miam:miam /data
-USER miam
+
+# Le conteneur démarre en root et redescend en uid 10001 dans l'entrypoint,
+# après avoir rendu le volume inscriptible : un bind mount arrive avec les
+# propriétaires de l'hôte, que la construction ne peut pas connaître.
+COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 VOLUME ["/data"]
 EXPOSE 8077
 
 HEALTHCHECK --interval=60s --timeout=5s --start-period=10s \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8077/api/health').read()"
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["miamstock"]
