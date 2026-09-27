@@ -145,6 +145,20 @@ vert "Le dépôt est accessible depuis cette machine."
 
 # --- 5. Code source ----------------------------------------------------------
 etape "Dépôt"
+
+# Le script est aussi versionné dans le dépôt qu'il met à jour. S'il tourne
+# depuis là, bash lirait la suite dans un fichier réécrit sous ses pieds : on
+# repart d'une copie posée à l'extérieur.
+SELF="$(readlink -f "$0")"
+case "$SELF" in
+    "$APP_DIR"/*)
+        COPIE="/root/install-lxc.sh"
+        cp -f "$SELF" "$COPIE"
+        jaune "Relance depuis une copie hors du dépôt : $COPIE"
+        exec bash "$COPIE" "$@"
+        ;;
+esac
+
 if [[ -d "$APP_DIR/.git" ]]; then
     git -C "$APP_DIR" fetch --quiet origin
     git -C "$APP_DIR" reset --hard --quiet origin/main
