@@ -1,0 +1,20 @@
+services:
+  miamstock:
+    build: .
+    image: miamstock:0.1.0
+    container_name: miamstock
+    restart: unless-stopped
+    ports:
+      # Lié à la loopback : c'est Tailscale Serve qui expose le service, pas Docker.
+      # Pour un accès direct sur le LAN, remplace par "8077:8077" — mais sans HTTPS,
+      # le navigateur refusera l'accès à la caméra.
+      - "127.0.0.1:8077:8077"
+    volumes:
+      - ./data:/data
+    environment:
+      # Compose refuse de démarrer si le code n'est pas défini dans .env.
+      MIAMSTOCK_PIN: ${MIAMSTOCK_PIN:?Definis MIAMSTOCK_PIN dans un fichier .env}
+      MIAMSTOCK_USER_AGENT: ${MIAMSTOCK_USER_AGENT:-MiamStock/0.1 (self-hosted)}
+      MIAMSTOCK_URGENT_DAYS: ${MIAMSTOCK_URGENT_DAYS:-3}
+      MIAMSTOCK_SOON_DAYS: ${MIAMSTOCK_SOON_DAYS:-7}
+      TZ: ${TZ:-Europe/Paris}
