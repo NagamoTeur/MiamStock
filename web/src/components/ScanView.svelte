@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../lib/Icon.svelte';
   import { api } from '../lib/api';
   import {
     beep,
@@ -136,7 +137,7 @@
       </span>
     {:else}
       <div class="viewfinder-idle">
-        <span class="big" aria-hidden="true">⌷</span>
+        <Icon name="scan" size={40} />
         <span>Vise le code-barres, le produit se remplit tout seul</span>
       </div>
     {/if}
@@ -179,8 +180,8 @@
         <div class="l">articles</div>
       </div>
       <div class="kpi">
-        <div class="n status-urgent">{app.summary.expired + app.summary.urgent}</div>
-        <div class="l">à consommer vite</div>
+        <div class="n status-urgent">{app.alertCount}</div>
+        <div class="l">à consommer</div>
       </div>
       <div class="kpi">
         <div class="n">{app.summary.shopping_open}</div>

@@ -1,0 +1,591 @@
+/* Surface PC — la frise des dates.
+ *
+ * Hérite intégralement des jetons du monde livré (app.css) : aucune couleur,
+ * aucun rayon, aucune graisse n'est réinventé ici. Seule la composition change,
+ * parce que le PC a un autre métier que le téléphone.
+ */
+
+.desk {
+  --rail: 76px;
+  --panel: 336px;
+  --lane-label: 132px;
+  --expired-col: 108px;
+  --chip-h: 30px;
+
+  display: grid;
+  grid-template-columns: var(--rail) 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* --- Rail de navigation ----------------------------------------------------- */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0.7rem 0.4rem;
+  /* Surface légèrement plus froide que le contenu : la hiérarchie des plans
+     se lit sans une seule bordure supplémentaire. */
+  background: color-mix(in srgb, var(--bg-elevated) 70%, #0a1a14);
+  border-right: 1px solid var(--border);
+}
+
+.rail-mark {
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.9rem;
+}
+
+.rail-mark img {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+.rail button {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 0.6rem 0.2rem;
+  border-radius: 12px;
+  color: var(--text-faint);
+  font-size: 0.66rem;
+  line-height: 1.1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.rail button:hover {
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.rail button.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rail .spacer {
+  flex: 1;
+}
+
+/* --- Coquille de contenu ---------------------------------------------------- */
+
+.desk-main {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  min-height: 0;
+}
+
+.desk-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.desk-top h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.desk-top .sub {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.desk-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel);
+  min-height: 0;
+}
+
+.desk-body.wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.desk-view {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+}
+
+/* --- La frise --------------------------------------------------------------- */
+
+.frise {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.frise-grid {
+  display: grid;
+  grid-template-columns: var(--lane-label) var(--expired-col) minmax(0, 1fr);
+}
+
+.frise-axis {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.axis-track {
+  position: relative;
+  height: 46px;
+}
+
+.axis-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 5px;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.axis-tick.major {
+  border-left-color: color-mix(in srgb, var(--text) 24%, transparent);
+  color: var(--text-dim);
+}
+
+.axis-tick.today {
+  border-left: 2px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.axis-head {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0.6rem 0.45rem;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.axis-head.expired {
+  color: color-mix(in srgb, var(--expired) 80%, var(--text-faint));
+  border-left: 1px solid var(--border);
+}
+
+/* Le trait d'aujourd'hui traverse tous les couloirs d'un seul tenant. */
+.frise-lanes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.today-rule {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--lane-label) + var(--expired-col));
+  width: 2px;
+  background: var(--accent);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Le trait traverse toute la surface : il lui faut un repère lisible à son
+   extrémité basse, sinon il pend dans le vide sans se nommer. */
+.today-rule span {
+  position: absolute;
+  bottom: 12px;
+  left: 7px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  opacity: 1;
+}
+
+.lane {
+  border-bottom: 1px solid var(--border);
+  min-height: 74px;
+  transition: background 0.15s ease;
+}
+
+.lane:last-child {
+  border-bottom: none;
+}
+
+.lane.drop-target {
+  background: var(--accent-soft);
+}
+
+/* Prolonge les colonnes jusqu'au bas du conteneur : le champ se termine par
+   une limite, pas par une interruption. */
+.lane-filler {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.lane-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.7rem 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  border-right: 1px solid var(--border);
+}
+
+.lane-label .count {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 0.74rem;
+}
+
+.lane-expired {
+  position: relative;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--expired) 7%, transparent);
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lane-track {
+  position: relative;
+  padding: 0.45rem 0;
+}
+
+/* --- Puces de lot ----------------------------------------------------------- */
+
+.chip-lot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: var(--chip-h);
+  padding: 0 0.5rem;
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  font-size: 0.79rem;
+  cursor: grab;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  /* Décalage et flou : une ombre sans offset n'est qu'un halo. */
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.chip-lot:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  z-index: 4;
+}
+
+.chip-lot.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  z-index: 4;
+}
+
+.chip-lot.dragging {
+  cursor: grabbing;
+  opacity: 0.55;
+}
+
+.chip-lot .n {
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.chip-lot .nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 13ch;
+}
+
+.chip-lot.static {
+  position: static;
+  width: 100%;
+  height: auto;
+  min-height: 26px;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.74rem;
+}
+
+/* --- Bande « sans date » ---------------------------------------------------- */
+
+.undated {
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elevated) 55%, var(--bg));
+  padding: 0.6rem 0.9rem 0.7rem;
+  max-height: 28vh;
+  overflow-y: auto;
+}
+
+/* Vide, la bande n'a rien à expliquer : elle se réduit à sa seule étiquette. */
+.undated.empty-band {
+  padding-bottom: 0.55rem;
+}
+
+.undated h2 {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.undated p {
+  margin: 0 0 0.55rem;
+  font-size: 0.74rem;
+  color: var(--text-faint);
+}
+
+.undated-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.undated .chip-lot {
+  position: static;
+}
+
+/* --- Panneau latéral --------------------------------------------------------- */
+
+.panel {
+  border-left: 1px solid var(--border);
+  background: var(--bg-elevated);
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0.9rem;
+}
+
+.panel h2 {
+  font-size: 0.95rem;
+  margin: 0 0 0.1rem;
+}
+
+.panel section {
+  margin-top: 1.4rem;
+}
+
+.panel section:first-of-type {
+  margin-top: 0.9rem;
+}
+
+.panel h3 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin: 0 0 0.5rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.28rem;
+  margin-bottom: 0.65rem;
+}
+
+.field label {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.field input,
+.field select {
+  padding: 0.45rem 0.55rem;
+  font-size: 0.85rem;
+  border-radius: 10px;
+}
+
+/* --- Barre d'actions groupées ------------------------------------------------ */
+
+.bulkbar {
+  position: absolute;
+  left: 50%;
+  bottom: 1.1rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  z-index: 20;
+  animation: bulk-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes bulk-in {
+  from { transform: translate(-50%, 10px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bulkbar { animation: none; }
+}
+
+.bulkbar .n {
+  font-weight: 650;
+  padding: 0 0.3rem;
+}
+
+/* --- Tableaux (registre, catalogue, journal) --------------------------------- */
+
+.table-wrap {
+  overflow: auto;
+  height: 100%;
+}
+
+table.grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.85rem;
+}
+
+table.grid th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  font-weight: 600;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+table.grid th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+table.grid th.sortable:hover {
+  color: var(--text);
+}
+
+table.grid th .dir {
+  color: var(--accent);
+  margin-left: 0.25rem;
+}
+
+table.grid td {
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  vertical-align: middle;
+}
+
+table.grid tbody tr:hover td {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+table.grid tbody tr.selected td {
+  background: var(--accent-soft);
+}
+
+table.grid td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+td .inline-input {
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+td .inline-input:hover {
+  border-color: var(--border);
+  background: var(--bg-input);
+}
+
+td .inline-input:focus {
+  border-color: var(--accent);
+  background: var(--bg-input);
+}
+
+/* --- Barre de commande ------------------------------------------------------- */
+
+.cmd-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+  z-index: 80;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 14vh;
+}
+
+.cmd {
+  width: min(560px, 92vw);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.5);
+  overflow: hidden;
+}
+
+.cmd input {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 1.05rem;
+  padding: 1rem 1.1rem;
+}
+
+.cmd input:focus-visible {
+  outline: none;
+}
+
+.cmd-hint {
+  padding: 0.6rem 1.1rem 0.8rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: 0.76rem;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.05em 0.4em;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  font-family: inherit;
+  font-size: 0.85em;
+  color: var(--text-dim);
+}

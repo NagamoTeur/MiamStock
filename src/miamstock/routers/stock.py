@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
@@ -10,14 +11,19 @@ from .. import auth
 from ..config import settings
 from ..db import get_conn, log_event, now_iso, transaction
 from ..models import (
+    CatalogEntry,
+    ConsumptionEntry,
+    HistoryEntry,
     LookupOut,
     LotPatch,
     ProductOut,
     ProductPatch,
     StockInIn,
+    StatsOut,
     StockLine,
     StockOutIn,
     StockOutResult,
+    WastedProduct,
 )
 from ..openfoodfacts import fetch_product
 from ..service import (
@@ -118,27 +124,40 @@ async def stock_in(body: StockInIn) -> StockLine:
             "SELECT barcode FROM products WHERE barcode = ?", (barcode,)
         ).fetchone()
 
+    # Les valeurs saisies à la main l'emportent sur Open Food Facts : quelqu'un
+    # qui prend la peine de corriger une fiche en sait plus que la base.
+    manual = {
+        key: value.strip()
+        for key, value in (
+            ("name", body.name),
+            ("brand", body.brand),
+            ("net_quantity", body.net_quantity),
+        )
+        if value and value.strip()
+    }
+
     info: dict = {}
     if known is None:
         fetched = await fetch_product(barcode)
         if fetched is not None:
-            info = dict(fetched)
-        elif body.name:
-            info = {"name": body.name.strip(), "source": "manual"}
+            info = {**dict(fetched), **manual}
+        elif manual.get("name"):
+            info = {**manual, "source": "manual"}
         else:
             raise HTTPException(
                 status_code=404,
                 detail="Produit inconnu d'Open Food Facts : renseigne un nom pour le créer",
             )
-    elif body.name:
-        info = {"name": body.name.strip()}
+    else:
+        info = dict(manual)
 
     with get_conn() as conn, transaction(conn):
         upsert_product(conn, barcode, info)
-        if body.name:
+        if manual:
+            assignments = ", ".join(f"{field} = ?" for field in manual)
             conn.execute(
-                "UPDATE products SET name = ?, updated_at = ? WHERE barcode = ?",
-                (body.name.strip(), now_iso(), barcode),
+                f"UPDATE products SET {assignments}, updated_at = ? WHERE barcode = ?",
+                [*manual.values(), now_iso(), barcode],
             )
 
         product = conn.execute(
@@ -173,8 +192,13 @@ async def stock_in(body: StockInIn) -> StockLine:
             updates.append("default_location_id = ?")
             params.append(location_id)
         if body.expires_on and product["default_shelf_life_days"] is None:
-            updates.append("default_shelf_life_days = ?")
-            params.append((body.expires_on - date.today()).days)
+            # Rentrer un produit déjà périmé ne dit rien de sa durée de
+            # conservation habituelle : une valeur négative pré-remplirait une
+            # date passée au scan suivant.
+            shelf_life = (body.expires_on - date.today()).days
+            if shelf_life > 0:
+                updates.append("default_shelf_life_days = ?")
+                params.append(shelf_life)
         if updates:
             params.append(barcode)
             conn.execute(f"UPDATE products SET {', '.join(updates)} WHERE barcode = ?", params)
@@ -322,18 +346,209 @@ def patch_product(barcode: str, body: ProductPatch) -> ProductOut:
     return ProductOut(**row_to_product(row))
 
 
-@router.get("/history")
-def read_history(limit: int = Query(default=50, ge=1, le=500)) -> list[dict]:
+@router.get("/products", response_model=list[CatalogEntry])
+def read_catalog(
+    q: str | None = Query(default=None, max_length=100),
+    in_stock: bool | None = Query(default=None),
+) -> list[CatalogEntry]:
+    """Le catalogue : tout produit jamais scanné, y compris à zéro.
+
+    Le stock ne montre que ce qui existe ; le catalogue montre ce que le foyer
+    consomme, c'est là que vivent les réglages durables (seuil, emplacement
+    par défaut, durée de conservation).
+    """
+    clauses: list[str] = []
+    params: list[object] = []
+    if q:
+        clauses.append("(p.name LIKE ? OR p.brand LIKE ? OR p.barcode LIKE ?)")
+        needle = f"%{q.strip()}%"
+        params.extend([needle, needle, needle])
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT p.*,
+                   COALESCE(SUM(l.quantity), 0) AS in_stock,
+                   COUNT(l.id)                  AS lot_count,
+                   MIN(l.expires_on)            AS next_expiry,
+                   EXISTS(SELECT 1 FROM shopping_items s WHERE s.barcode = p.barcode)
+                        AS on_shopping_list,
+                   (SELECT MAX(e.at) FROM events e WHERE e.barcode = p.barcode) AS last_seen
+            FROM products p LEFT JOIN lots l ON l.barcode = p.barcode AND l.quantity > 0
+            {where}
+            GROUP BY p.barcode
+            ORDER BY p.name COLLATE NOCASE
+            """,
+            params,
+        ).fetchall()
+
+    entries = [
+        CatalogEntry(
+            product=ProductOut(**row_to_product(row)),
+            in_stock=row["in_stock"],
+            lot_count=row["lot_count"],
+            next_expiry=row["next_expiry"],
+            on_shopping_list=bool(row["on_shopping_list"]),
+            last_seen=row["last_seen"],
+        )
+        for row in rows
+    ]
+    if in_stock is None:
+        return entries
+    return [entry for entry in entries if (entry.in_stock > 0) == in_stock]
+
+
+@router.get("/history", response_model=list[HistoryEntry])
+def read_history(
+    limit: int = Query(default=50, ge=1, le=500),
+    barcode: str | None = Query(default=None, max_length=64),
+    kind: str | None = Query(default=None, max_length=20),
+) -> list[HistoryEntry]:
+    clauses: list[str] = []
+    params: list[object] = []
+    if barcode:
+        clauses.append("e.barcode = ?")
+        params.append(barcode.strip())
+    if kind:
+        clauses.append("e.kind = ?")
+        params.append(kind)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.append(limit)
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT e.id, e.kind, e.barcode, e.quantity, e.detail, e.at, p.name
+            FROM events e LEFT JOIN products p ON p.barcode = e.barcode
+            {where}
+            ORDER BY e.at DESC, e.id DESC LIMIT ?
+            """,
+            params,
+        ).fetchall()
+    return [HistoryEntry(**dict(row)) for row in rows]
+
+
+@router.get("/consumption", response_model=list[ConsumptionEntry])
+def read_consumption(
+    days: int = Query(default=90, ge=7, le=3650),
+    cover_days: int = Query(default=7, ge=1, le=90),
+) -> list[ConsumptionEntry]:
+    """Le rythme auquel chaque produit quitte le stock, mesuré sur le journal.
+
+    Le rythme est rapporté à la période réellement observée — du premier
+    mouvement de la fenêtre à aujourd'hui — et non à la fenêtre entière : sur
+    une application utilisée depuis trois semaines, diviser par quatre-vingt-dix
+    jours sous-estimerait la consommation d'un facteur quatre.
+
+    `cover_days` est la durée que le seuil proposé doit couvrir : par défaut une
+    semaine, soit « garde de quoi tenir jusqu'aux prochaines courses ».
+    """
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
+
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT e.*, p.name
-            FROM events e LEFT JOIN products p ON p.barcode = e.barcode
-            ORDER BY e.at DESC, e.id DESC LIMIT ?
+            SELECT p.barcode, p.name, p.brand, p.min_quantity,
+                   COALESCE(SUM(CASE WHEN e.kind = 'out'     THEN e.quantity END), 0) AS consumed,
+                   COALESCE(SUM(CASE WHEN e.kind = 'discard' THEN e.quantity END), 0) AS discarded,
+                   COUNT(e.id) AS events,
+                   MIN(e.at)   AS first_at,
+                   MAX(e.at)   AS last_at,
+                   (SELECT COALESCE(SUM(l.quantity), 0) FROM lots l WHERE l.barcode = p.barcode)
+                        AS in_stock
+            FROM products p
+            JOIN events e ON e.barcode = p.barcode
+            WHERE e.at >= ? AND e.kind IN ('out', 'discard')
+            GROUP BY p.barcode
             """,
-            (limit,),
+            (since,),
         ).fetchall()
-    return [dict(row) for row in rows]
+
+    entries: list[ConsumptionEntry] = []
+    for row in rows:
+        depleted = int(row["consumed"]) + int(row["discarded"])
+        if depleted <= 0:
+            continue
+
+        first = datetime.fromisoformat(row["first_at"])
+        last = datetime.fromisoformat(row["last_at"])
+        # Plancher à sept jours : sur quelques heures d'observation, tout rythme
+        # ramené à la semaine serait un chiffre inventé.
+        observed_days = max((now - first).days, 7)
+        per_week = round(depleted / observed_days * 7, 2)
+
+        # Un rythme n'a de sens qu'avec plusieurs mouvements étalés dans le temps.
+        reliable = int(row["events"]) >= 3 and (last - first).days >= 14
+
+        per_day = per_week / 7
+        entries.append(
+            ConsumptionEntry(
+                barcode=row["barcode"],
+                name=row["name"],
+                brand=row["brand"],
+                in_stock=int(row["in_stock"]),
+                min_quantity=int(row["min_quantity"]),
+                consumed=int(row["consumed"]),
+                discarded=int(row["discarded"]),
+                per_week=per_week,
+                events=int(row["events"]),
+                days_left=round(int(row["in_stock"]) / per_day, 1) if per_day > 0 else None,
+                suggested_min=max(1, ceil(per_week * cover_days / 7)) if reliable else None,
+                reliable=reliable,
+            )
+        )
+
+    # Le plus pressant d'abord : ce qui s'épuise le plus tôt.
+    return sorted(
+        entries,
+        key=lambda entry: (entry.days_left is None, entry.days_left or 0.0),
+    )
+
+
+@router.get("/stats", response_model=StatsOut)
+def read_stats(days: int = Query(default=90, ge=1, le=3650)) -> StatsOut:
+    """Bilan sur une fenêtre glissante, lu dans le journal réel des bips.
+
+    Le taux de gaspillage rapporte ce qui a été jeté à tout ce qui est sorti du
+    stock : c'est la seule mesure honnête de ce que l'application fait gagner,
+    et rien ici n'est estimé.
+    """
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+
+    with get_conn() as conn:
+        totals = {
+            row["kind"]: row["total"]
+            for row in conn.execute(
+                "SELECT kind, COALESCE(SUM(quantity), 0) AS total FROM events"
+                " WHERE at >= ? AND kind IN ('in', 'out', 'discard') GROUP BY kind",
+                (since,),
+            ).fetchall()
+        }
+        wasted = conn.execute(
+            """
+            SELECT e.barcode, COALESCE(p.name, e.barcode) AS name,
+                   COALESCE(SUM(e.quantity), 0) AS quantity
+            FROM events e LEFT JOIN products p ON p.barcode = e.barcode
+            WHERE e.at >= ? AND e.kind = 'discard' AND e.barcode IS NOT NULL
+            GROUP BY e.barcode ORDER BY quantity DESC LIMIT 5
+            """,
+            (since,),
+        ).fetchall()
+
+    consumed = int(totals.get("out", 0))
+    discarded = int(totals.get("discard", 0))
+    left_stock = consumed + discarded
+
+    return StatsOut(
+        days=days,
+        entered=int(totals.get("in", 0)),
+        consumed=consumed,
+        discarded=discarded,
+        waste_ratio=round(discarded / left_stock, 4) if left_stock else 0.0,
+        most_wasted=[WastedProduct(**dict(row)) for row in wasted],
+    )
 
 
 __all__ = ["router", "lot_status", "location_kinds"]

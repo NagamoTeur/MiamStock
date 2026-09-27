@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '../lib/Icon.svelte';
+  import ProductSheet from './ProductSheet.svelte';
   import { api } from '../lib/api';
   import { describeExpiry } from '../lib/dates';
   import { app } from '../lib/state.svelte';
@@ -15,6 +17,7 @@
   // svelte-ignore state_referenced_locally
   let open = $state(expanded);
   let busy = $state(false);
+  let sheetOpen = $state(false);
 
   async function consumeOne() {
     if (busy) return;
@@ -65,7 +68,7 @@
     {#if line.product.image_url}
       <img class="thumb" src={line.product.image_url} alt="" loading="lazy" />
     {:else}
-      <div class="thumb placeholder" aria-hidden="true">🥫</div>
+      <div class="thumb placeholder"><Icon name="jar" size={22} /></div>
     {/if}
 
     <button class="grow" style="text-align:left" onclick={() => (open = !open)}>
@@ -77,7 +80,10 @@
         {[line.product.brand, line.product.net_quantity].filter(Boolean).join(' · ') ||
           line.product.barcode}
       </div>
-      <div class="muted status-{line.worst_status}">
+      <div class="muted status-{line.worst_status} row" style="gap:.3rem">
+        <span class="caret" class:open aria-hidden="true">
+          <Icon name="chevronRight" size={13} />
+        </span>
         {line.lots.length > 1
           ? `${line.lots.length} lots · au plus tôt ${describeExpiry(line.next_expiry)}`
           : describeExpiry(line.next_expiry)}
@@ -111,18 +117,18 @@
               onclick={() => changeLotQuantity(lot.id, lot.quantity - 1)}
               disabled={busy}
               aria-label="Retirer un du lot"
-              style="width:34px; height:34px; font-size:1rem"
+              style="width:34px; height:34px"
             >
-              −
+              <Icon name="minus" size={16} />
             </button>
             <span class="value" style="font-size:1rem">{lot.quantity}</span>
             <button
               onclick={() => changeLotQuantity(lot.id, lot.quantity + 1)}
               disabled={busy}
               aria-label="Ajouter un au lot"
-              style="width:34px; height:34px; font-size:1rem"
+              style="width:34px; height:34px"
             >
-              +
+              <Icon name="plus" size={16} />
             </button>
           </div>
           <button
@@ -132,28 +138,33 @@
             disabled={busy}
             aria-label="Jeter ce lot"
           >
-            🗑
+            <Icon name="trash" size={17} />
           </button>
         </div>
       {/each}
 
-      <label class="row" style="margin-top:.7rem; gap:.5rem">
-        <span class="muted grow">Toujours en avoir au moins</span>
-        <input
-          type="number"
-          min="0"
-          max="99"
-          value={line.product.min_quantity}
-          onchange={async (event) => {
-            const value = Number(event.currentTarget.value);
-            await app.guard(() =>
-              api.patchProduct(line.product.barcode, { min_quantity: value }),
-            );
-            await Promise.all([app.refreshStock(), app.refreshShopping()]);
-          }}
-          style="width:5rem; text-align:center"
-        />
-      </label>
+      <button class="btn block" style="margin-top:.7rem" onclick={() => (sheetOpen = true)}>
+        <Icon name="pencil" size={16} />
+        Fiche produit
+      </button>
     </div>
   {/if}
 </div>
+
+{#if sheetOpen}
+  <ProductSheet product={line.product} onclose={() => (sheetOpen = false)} />
+{/if}
+
+<style>
+  /* Sans ce chevron, rien n'annonçait que la ligne s'ouvre — et la fiche
+     produit, qui n'est atteignable que par là, restait introuvable. */
+  .caret {
+    display: inline-flex;
+    transition: transform 0.15s ease;
+    color: var(--text-faint);
+  }
+
+  .caret.open {
+    transform: rotate(90deg);
+  }
+</style>

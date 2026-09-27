@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from datetime import date, timedelta
 
 NUTELLA = "3017620422003"
@@ -340,3 +341,245 @@ def test_historique_journalise_les_bips(client):
     client.post("/api/stock/out", json={"barcode": NUTELLA, "quantity": 1})
     kinds = [event["kind"] for event in client.get("/api/history").json()]
     assert "in" in kinds and "out" in kinds
+
+
+# --- Fiche produit et saisie manuelle enrichie --------------------------------
+
+
+def test_produit_inconnu_accepte_ses_propres_valeurs(client):
+    line = client.post(
+        "/api/stock/in",
+        json={
+            "barcode": "2000000000012",
+            "quantity": 3,
+            "name": "Confiture de mirabelles",
+            "brand": "Mamie",
+            "net_quantity": "350 g",
+        },
+    ).json()
+    product = line["product"]
+    assert product["name"] == "Confiture de mirabelles"
+    assert product["brand"] == "Mamie"
+    assert product["net_quantity"] == "350 g"
+    assert product["source"] == "manual"
+
+
+def test_valeurs_saisies_priment_sur_openfoodfacts(client):
+    # Open Food Facts nomme ce code « Nutella » ; l'utilisateur sait mieux.
+    line = client.post(
+        "/api/stock/in",
+        json={"barcode": NUTELLA, "name": "Pâte à tartiner maison", "brand": "Maison"},
+    ).json()
+    assert line["product"]["name"] == "Pâte à tartiner maison"
+    assert line["product"]["brand"] == "Maison"
+    # Les champs non saisis restent ceux d'Open Food Facts.
+    assert line["product"]["net_quantity"] == "400 g"
+
+
+def test_corriger_un_produit_deja_en_base(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    product = client.patch(
+        f"/api/products/{NUTELLA}",
+        json={"name": "Nutella (grand pot)", "brand": "Ferrero", "net_quantity": "750 g"},
+    ).json()
+    assert product["name"] == "Nutella (grand pot)"
+    assert product["brand"] == "Ferrero"
+    assert product["net_quantity"] == "750 g"
+
+
+def test_second_bip_nefface_pas_une_correction_manuelle(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    client.patch(f"/api/products/{NUTELLA}", json={"name": "Le pot du petit-déj"})
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    assert client.get(f"/api/products/{NUTELLA}").json()["name"] == "Le pot du petit-déj"
+
+
+# --- Catalogue ----------------------------------------------------------------
+
+
+def test_catalogue_garde_les_produits_a_zero(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    client.post("/api/stock/out", json={"barcode": NUTELLA, "quantity": 1})
+
+    # Le stock est vide, le catalogue non : c'est toute la différence.
+    assert client.get("/api/stock").json() == []
+    catalog = client.get("/api/products").json()
+    assert len(catalog) == 1
+    assert catalog[0]["in_stock"] == 0
+    assert catalog[0]["on_shopping_list"] is True
+
+
+def test_catalogue_compte_lots_et_prochaine_dlc(client, locations):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 2,
+                                       "expires_on": in_days(20),
+                                       "location_id": locations["fridge"]})
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 2,
+                                       "expires_on": in_days(4),
+                                       "location_id": locations["fridge"]})
+    entry = client.get("/api/products").json()[0]
+    assert entry["in_stock"] == 4
+    assert entry["lot_count"] == 2
+    assert entry["next_expiry"] == in_days(4)
+
+
+def test_catalogue_filtre_et_recherche(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 1})
+    client.post("/api/stock/out", json={"barcode": YAOURT, "quantity": 1})
+
+    assert len(client.get("/api/products", params={"in_stock": True}).json()) == 1
+    assert len(client.get("/api/products", params={"in_stock": False}).json()) == 1
+    assert len(client.get("/api/products", params={"q": "nut"}).json()) == 1
+
+
+# --- Historique ---------------------------------------------------------------
+
+
+def test_historique_filtrable_par_produit_et_par_type(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 2})
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 2})
+    client.post("/api/stock/out", json={"barcode": NUTELLA, "quantity": 1})
+
+    par_produit = client.get("/api/history", params={"barcode": NUTELLA}).json()
+    assert {event["kind"] for event in par_produit} == {"in", "out"}
+    assert all(event["barcode"] == NUTELLA for event in par_produit)
+
+    entrees = client.get("/api/history", params={"kind": "in"}).json()
+    assert len(entrees) == 2
+    assert entrees[0]["name"] is not None
+
+
+# --- Statistiques -------------------------------------------------------------
+
+
+def test_statistiques_calculent_le_gaspillage(client):
+    line = client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 10}).json()
+    client.post("/api/stock/out", json={"barcode": NUTELLA, "quantity": 3})
+    client.delete(f"/api/lots/{line['lots'][0]['id']}")  # jette les 7 restants
+
+    stats = client.get("/api/stats").json()
+    assert stats["entered"] == 10
+    assert stats["consumed"] == 3
+    assert stats["discarded"] == 7
+    assert stats["waste_ratio"] == 0.7
+    assert stats["most_wasted"][0]["name"] == "Nutella"
+    assert stats["most_wasted"][0]["quantity"] == 7
+
+
+def test_statistiques_sans_donnees_ne_divisent_pas_par_zero(client):
+    stats = client.get("/api/stats").json()
+    assert stats["waste_ratio"] == 0.0
+    assert stats["most_wasted"] == []
+
+
+def test_produit_deja_perime_ne_fixe_pas_une_conservation_negative(client):
+    """Rentrer un produit dont la DLC est passée ne dit rien de sa conservation."""
+    client.post(
+        "/api/stock/in",
+        json={"barcode": YAOURT, "quantity": 1, "expires_on": in_days(-2)},
+    )
+    assert client.get(f"/api/products/{YAOURT}").json()["default_shelf_life_days"] is None
+
+
+def test_conservation_deduite_dune_dlc_future(client):
+    client.post(
+        "/api/stock/in",
+        json={"barcode": YAOURT, "quantity": 1, "expires_on": in_days(21)},
+    )
+    assert client.get(f"/api/products/{YAOURT}").json()["default_shelf_life_days"] == 21
+
+
+# --- Rythme de consommation ---------------------------------------------------
+
+
+def test_produit_sans_sortie_absent_du_rythme(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 5})
+    assert client.get("/api/consumption").json() == []
+
+
+def test_rythme_rapporte_a_la_periode_observee(client, journal):
+    """Quatre unités sorties sur 28 jours font une par semaine, pas 4/90e."""
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    for age in (28, 21, 14, 7):
+        journal(YAOURT, "out", 1, age)
+
+    entry = client.get("/api/consumption").json()[0]
+    assert entry["consumed"] == 4
+    assert entry["per_week"] == 1.0
+    assert entry["events"] == 4
+
+
+def test_le_jete_compte_dans_ce_qui_vide_letagere(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    journal(YAOURT, "out", 2, 21)
+    journal(YAOURT, "discard", 2, 14)
+    journal(YAOURT, "out", 3, 7)
+
+    entry = client.get("/api/consumption").json()[0]
+    assert entry["consumed"] == 5
+    assert entry["discarded"] == 2
+    # 7 unités sorties sur 21 jours observés.
+    assert entry["per_week"] == pytest.approx(7 / 21 * 7, abs=0.05)
+
+
+def test_historique_trop_maigre_nest_pas_presente_comme_mesure(client, journal):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 5})
+    journal(NUTELLA, "out", 1, 2)
+    journal(NUTELLA, "out", 1, 1)
+
+    entry = client.get("/api/consumption").json()[0]
+    assert entry["reliable"] is False
+    assert entry["suggested_min"] is None
+
+
+def test_seuil_propose_couvre_une_semaine_de_consommation(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    for age in (28, 21, 14, 7):
+        journal(YAOURT, "out", 4, age)
+
+    entry = client.get("/api/consumption").json()[0]
+    assert entry["reliable"] is True
+    assert entry["per_week"] == 4.0
+    assert entry["suggested_min"] == 4
+
+
+def test_duree_de_couverture_reglable(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    for age in (28, 21, 14, 7):
+        journal(YAOURT, "out", 4, age)
+
+    quinzaine = client.get("/api/consumption", params={"cover_days": 14}).json()[0]
+    assert quinzaine["suggested_min"] == 8
+
+
+def test_jours_restants_et_tri_par_urgence(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 2})
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 20})
+    for age in (28, 21, 14, 7):
+        journal(YAOURT, "out", 4, age)
+        journal(NUTELLA, "out", 1, age)
+
+    entries = client.get("/api/consumption").json()
+    # Le Skyr part à 4 par semaine avec 2 en stock : il s'épuise bien avant.
+    assert entries[0]["barcode"] == YAOURT
+    assert entries[0]["days_left"] == pytest.approx(3.5, abs=0.1)
+    assert entries[1]["days_left"] > entries[0]["days_left"]
+
+
+def test_fenetre_dobservation_exclut_les_vieux_mouvements(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    journal(YAOURT, "out", 50, 200)  # hors fenêtre de 90 jours
+    journal(YAOURT, "out", 1, 10)
+
+    entry = client.get("/api/consumption", params={"days": 90}).json()[0]
+    assert entry["consumed"] == 1
+
+
+def test_ligne_de_courses_porte_de_quoi_deviner_son_rayon(client, locations):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 1,
+                                       "location_id": locations["fridge"]})
+    client.post("/api/stock/out", json={"barcode": YAOURT, "quantity": 1})
+
+    item = client.get("/api/shopping").json()[0]
+    assert item["categories"] is not None
+    assert item["location_kind"] == "fridge"

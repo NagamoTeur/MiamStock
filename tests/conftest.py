@@ -83,6 +83,26 @@ def locations(client):
 
 
 @pytest.fixture
+def journal():
+    """Écrit des mouvements datés dans le passé.
+
+    L'API horodate toujours au présent : sans cette porte dérobée, impossible de
+    tester un rythme, qui n'existe que sur une durée.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    def ecrire(barcode: str, kind: str, quantity: int, il_y_a_jours: float):
+        moment = datetime.now(timezone.utc) - timedelta(days=il_y_a_jours)
+        with get_conn() as conn:
+            conn.execute(
+                "INSERT INTO events (kind, barcode, quantity, at) VALUES (?, ?, ?, ?)",
+                (kind, barcode, quantity, moment.isoformat(timespec="seconds")),
+            )
+
+    return ecrire
+
+
+@pytest.fixture
 def db():
     with get_conn() as conn:
         yield conn

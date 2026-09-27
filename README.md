@@ -13,6 +13,14 @@ SQLite, le tout dans un seul process à héberger sur le Proxmox.
   plus critique au moins. Le congélateur n'alerte qu'une fois la date passée.
 - **Liste de courses** : alimentée automatiquement par les seuils, complétée à la
   main, partageable en un tap.
+- **Mode courses** : un écran plein, sans rien d'autre, où la liste est groupée
+  **par rayon** plutôt que par ordre alphabétique — parce qu'en magasin on suit
+  un trajet. Cibles de 60 px, et les lignes cochées se barrent sur place : une
+  liste qui se réorganise sous le pouce fait perdre le fil.
+- **Rythme de consommation** : l'application mesure la vitesse à laquelle chaque
+  produit quitte le stock et en déduit le seuil de réappro. Mesuré sur le journal
+  réel des sorties, jamais estimé : tant qu'il n'y a pas assez de mouvements
+  étalés dans le temps, elle le dit au lieu d'inventer un chiffre.
 
 ## Démarrage rapide (développement)
 
@@ -163,6 +171,39 @@ Le script passe par `sqlite3 .backup`, qui prend un verrou propre : copier le
 fichier `.db` à chaud produirait une base corrompue dès qu'un bip tombe au
 mauvais moment. Ajoute-le au cron, et laisse le snapshot Proxmox faire le reste.
 
+## Deux surfaces, deux métiers
+
+L'application bascule d'elle-même à 1024 px. Ce n'est pas la même interface
+redimensionnée : le téléphone et le PC ne font pas le même travail.
+
+**Le téléphone capture.** Tout est jugé au nombre de gestes entre viser un
+code-barres et l'avoir enregistré. Bascule « Je range / Je consomme » mémorisée,
+dates par boutons rapides, emplacement pré-rempli par l'historique du produit.
+
+**Le PC corrige et donne la vue d'ensemble**, et n'a pas de scanner — une caméra
+de portable ne sert à rien devant un placard. Quatre vues, au clavier :
+
+- **La frise des dates** — l'écran d'accueil. Le temps est l'axe horizontal, à
+  échelle **non linéaire** : les sept prochains jours occupent la moitié de la
+  largeur, parce que c'est là que les décisions se prennent, et six mois tiennent
+  dans le reste. Un couloir par emplacement, chaque lot posé à sa date. Faire
+  glisser une puce change sa date horizontalement et son emplacement
+  verticalement — et la lâcher dans le couloir du congélateur éteint son alerte,
+  puisque c'est précisément ce que congeler veut dire. `Échap` annule un glisser
+  en cours. Les produits sans date vivent dans une bande à part : une conserve
+  n'a pas sa place sur une frise et on ne lui invente pas une date.
+- **Le registre** — un lot par ligne, colonnes triables et filtrables, édition en
+  place, sélection multiple et actions groupées (sortir, déplacer, jeter).
+- **Le catalogue** — tout produit jamais scanné, y compris à zéro, avec ses
+  réglages durables : seuil mini, emplacement par défaut, durée de conservation.
+- **Le journal** — le vrai relevé des bips, et le taux de gaspillage qui en
+  découle : la part de ce qui sort du stock qui finit à la poubelle. Calculé, pas
+  estimé.
+
+Raccourcis : `/` ou `Ctrl+K` ouvre la saisie rapide (codes-barres à la chaîne
+sans jamais toucher la souris), `1` à `4` changent de vue, `Échap` vide la
+sélection.
+
 ## Installation sur le téléphone
 
 Ouvre l'URL HTTPS, puis :
@@ -203,9 +244,15 @@ src/miamstock/
 ├── main.py            application FastAPI, service de la PWA
 └── routers/           session · stock · shopping
 web/src/
-├── lib/scanner.ts     BarcodeDetector natif, repli ZXing
-├── lib/state.svelte.ts  état global (runes Svelte 5)
-└── components/        scan, stock, DLC, courses, réglages
+├── lib/scanner.ts        BarcodeDetector natif, repli ZXing
+├── lib/timescale.ts      l'échelle de temps non linéaire de la frise (module pur)
+├── lib/rayons.ts         classement des produits en rayons de magasin (module pur)
+├── lib/icons.ts          jeu d'icônes dessiné, grille 24, trait 1,7
+├── lib/state.svelte.ts   état partagé (runes Svelte 5)
+├── lib/desktop.svelte.ts état propre au PC : vue, sélection, catalogue
+├── lib/ProductFields.svelte  la fiche produit, partagée par les deux surfaces
+├── components/           surface téléphone
+└── desktop/              surface PC : frise, registre, catalogue, journal
 ```
 
 Quelques décisions qui méritent d'être connues avant de toucher au code :
@@ -225,6 +272,21 @@ Quelques décisions qui méritent d'être connues avant de toucher au code :
 - **ZXing n'est téléchargé que par les navigateurs qui en ont besoin.** Sur
   Chrome/Android, `BarcodeDetector` fait le travail nativement et les 390 ko du
   décodeur de secours ne sont jamais chargés.
+- **Le rythme de consommation est rapporté à la période réellement observée**,
+  pas à la fenêtre d'analyse. Sur une application utilisée depuis trois semaines,
+  diviser par quatre-vingt-dix jours sous-estimerait la consommation d'un facteur
+  quatre. Et un rythme tiré de deux mouvements du même jour n'est pas une mesure :
+  l'application refuse alors de proposer un seuil.
+- **Le classement en rayon est grossier, et c'est voulu.** Les catégories d'Open
+  Food Facts décrivent un aliment, pas un emplacement en magasin. Se tromper de
+  rayon fait perdre dix secondes ; une taxonomie fine serait ingérable à la main.
+  Les pièges réels sont les produits composés — un plat préparé au poulet n'est
+  pas de la boucherie, un biscuit apéritif n'est pas de l'épicerie sucrée — et
+  `npm --prefix web run check:rayons` les vérifie.
+- **L'échelle de temps de la frise est non linéaire et inversible.** Inversible
+  parce que lâcher une puce doit retrouver exactement la date visée :
+  `npm --prefix web run check:timescale` le vérifie, ainsi que la monotonie et
+  l'empilement des puces qui se chevauchent.
 
 ## API
 
@@ -243,7 +305,10 @@ est configuré.
 | `PATCH` | `/products/{code}` | Seuil mini, emplacement par défaut, nom. |
 | `GET`/`POST`/`PATCH`/`DELETE` | `/shopping` | Liste de courses. |
 | `GET` | `/summary` | Compteurs pour les badges d'onglets. |
-| `GET` | `/history` | Journal des bips. |
+| `GET` | `/products` | Catalogue : tout produit connu, stock compris. |
+| `GET` | `/history` | Journal des bips (`barcode`, `kind`, `limit`). |
+| `GET` | `/stats` | Entrées, sorties, rebuts et taux de gaspillage. |
+| `GET` | `/consumption` | Rythme par produit, autonomie restante, seuil suggéré. |
 
 Documentation interactive : `/docs`.
 

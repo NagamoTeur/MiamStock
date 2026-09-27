@@ -1,10 +1,14 @@
 import type {
+  CatalogEntry,
+  ConsumptionEntry,
+  HistoryEntry,
   Location,
   Product,
   Lookup,
   Session,
   ShoppingItem,
   StockLine,
+  Stats,
   StockOutResult,
   Summary,
 } from './types';
@@ -90,6 +94,8 @@ export const api = {
     expires_on?: string | null;
     location_id?: number | null;
     name?: string | null;
+    brand?: string | null;
+    net_quantity?: string | null;
   }) => request<StockLine>('/stock/in', { method: 'POST', ...json(body) }),
 
   stockOut: (body: { barcode: string; quantity: number; add_to_shopping: boolean }) =>
@@ -108,12 +114,46 @@ export const api = {
 
   patchProduct: (
     barcode: string,
-    body: { name?: string; min_quantity?: number; default_location_id?: number | null },
+    body: {
+      name?: string;
+      brand?: string | null;
+      net_quantity?: string | null;
+      min_quantity?: number;
+      default_location_id?: number | null;
+      default_shelf_life_days?: number | null;
+    },
   ) =>
     request<Product>(`/products/${encodeURIComponent(barcode)}`, {
       method: 'PATCH',
       ...json(body),
     }),
+
+  catalog: (params: { q?: string; in_stock?: boolean } = {}) => {
+    const query = new URLSearchParams();
+    if (params.q) query.set('q', params.q);
+    if (params.in_stock != null) query.set('in_stock', String(params.in_stock));
+    const suffix = query.toString();
+    return request<CatalogEntry[]>(`/products${suffix ? `?${suffix}` : ''}`);
+  },
+
+  history: (params: { limit?: number; barcode?: string; kind?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.barcode) query.set('barcode', params.barcode);
+    if (params.kind) query.set('kind', params.kind);
+    const suffix = query.toString();
+    return request<HistoryEntry[]>(`/history${suffix ? `?${suffix}` : ''}`);
+  },
+
+  stats: (days = 90) => request<Stats>(`/stats?days=${days}`),
+
+  consumption: (params: { days?: number; cover_days?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.days) query.set('days', String(params.days));
+    if (params.cover_days) query.set('cover_days', String(params.cover_days));
+    const suffix = query.toString();
+    return request<ConsumptionEntry[]>(`/consumption${suffix ? `?${suffix}` : ''}`);
+  },
 
   shopping: () => request<ShoppingItem[]>('/shopping'),
   addShopping: (body: { barcode?: string | null; label?: string | null; quantity?: number }) =>
