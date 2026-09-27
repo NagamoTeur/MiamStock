@@ -100,7 +100,24 @@ Laisse la case « Allow write access » décochée : le conteneur n'a qu'à lire
 
 ### Avec Docker (recommandé)
 
-Dans un LXC Debian avec Docker, ou une VM :
+Sur un LXC Debian fraîchement créé, [`deploy/install-lxc.sh`](deploy/install-lxc.sh)
+fait tout : paquets de base, dépôt Docker signé, Tailscale, clé de déploiement,
+clone, `.env` avec un code tiré au hasard, build et démarrage. Il est idempotent,
+donc le relancer sert aussi à mettre à jour.
+
+```bash
+scp deploy/install-lxc.sh root@<ip-du-lxc>:/tmp/
+ssh root@<ip-du-lxc> 'bash /tmp/install-lxc.sh'
+```
+
+Au premier passage il s'arrête sur la clé de déploiement, qu'il affiche : autorise-la
+(section précédente), puis relance la même commande — il reprend où il s'était arrêté.
+
+Il vérifie aussi ce que le conteneur ne peut pas corriger seul, et te donne la
+commande à passer sur l'hôte Proxmox le cas échéant : `nesting=1` et `keyctl=1`
+pour Docker, `/dev/net/tun` pour Tailscale.
+
+À la main, si tu préfères :
 
 ```bash
 git clone git@github.com:NagamoTeur/MiamStock.git /opt/miamstock && cd /opt/miamstock
