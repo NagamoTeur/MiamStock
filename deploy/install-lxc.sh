@@ -116,13 +116,20 @@ sort -u /root/.ssh/known_hosts -o /root/.ssh/known_hosts
 if ! ssh -o BatchMode=yes -o ConnectTimeout=8 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
     rouge "GitHub refuse cette machine : le dépôt est privé et la clé n'est pas encore autorisée."
     echo
-    jaune "Colle cette clé publique comme clé de déploiement (lecture seule) :"
+    jaune "Il s'agit de la clé DE CE CONTENEUR, pas de celle de ton poste :"
     echo
     cat "${DEPLOY_KEY}.pub"
     echo
-    jaune "Depuis ton PC :"
-    jaune "  gh repo deploy-key add <fichier.pub> --title \"$(hostname)\" --repo NagamoTeur/MiamStock"
-    jaune "ou sur github.com → Settings → Deploy keys → Add deploy key (ne coche PAS 'write access')."
+    # La commande est donnée prête à coller, IP comprise : se tromper de clé et
+    # autoriser celle de son PC est l'erreur naturelle à ce stade.
+    IP_LOCALE="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    jaune "Depuis ton PC, en une commande :"
+    echo
+    echo "  ssh root@${IP_LOCALE} 'cat ${DEPLOY_KEY}.pub' > /tmp/miamstock-lxc.pub \\"
+    echo "    && gh repo deploy-key add /tmp/miamstock-lxc.pub --title \"miamstock-lxc\" --repo NagamoTeur/MiamStock"
+    echo
+    jaune "Ou sur github.com → le dépôt → Settings → Deploy keys → Add deploy key,"
+    jaune "en collant le bloc ci-dessus et sans cocher 'Allow write access'."
     echo
     jaune "Puis relance ce script : il reprendra où il s'est arrêté."
     exit 2
