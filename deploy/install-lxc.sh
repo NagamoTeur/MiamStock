@@ -5,8 +5,12 @@
 # Le dépôt étant privé, le script se copie depuis le PC plutôt que de se
 # télécharger :
 #
-#   scp deploy/install-lxc.sh root@<ip-du-lxc>:/tmp/
-#   ssh root@<ip-du-lxc> 'bash /tmp/install-lxc.sh'
+#   scp deploy/install-lxc.sh root@<ip-du-lxc>:/root/
+#   ssh root@<ip-du-lxc> 'bash /root/install-lxc.sh'
+#
+# Pas dans /tmp : le script peut demander un redémarrage du conteneur (device
+# TUN pour Tailscale), et /tmp est vidé au boot. Une fois le dépôt cloné, le
+# script vit de toute façon dans /opt/miamstock/deploy/.
 #
 # Le script est idempotent : le relancer met simplement à jour et redéploie.
 # Il s'arrête au premier échec plutôt que de continuer sur un état à moitié fait.

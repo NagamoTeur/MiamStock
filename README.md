@@ -106,8 +106,16 @@ clone, `.env` avec un code tiré au hasard, build et démarrage. Il est idempote
 donc le relancer sert aussi à mettre à jour.
 
 ```bash
-scp deploy/install-lxc.sh root@<ip-du-lxc>:/tmp/
-ssh root@<ip-du-lxc> 'bash /tmp/install-lxc.sh'
+scp deploy/install-lxc.sh root@<ip-du-lxc>:/root/
+ssh root@<ip-du-lxc> 'bash /root/install-lxc.sh'
+```
+
+Dépose-le dans `/root`, pas dans `/tmp` : le script peut réclamer un
+redémarrage du conteneur pour le device TUN, et `/tmp` est vidé au boot. Une
+fois le dépôt cloné, les mises à jour se font directement depuis lui :
+
+```bash
+ssh root@<ip-du-lxc> 'bash /opt/miamstock/deploy/install-lxc.sh'
 ```
 
 Au premier passage il s'arrête sur la clé de déploiement, qu'il affiche : autorise-la
