@@ -1,10 +1,12 @@
 <script lang="ts">
   import Icon from '../lib/Icon.svelte';
+  import CoursesMode from './CoursesMode.svelte';
   import { api } from '../lib/api';
   import { app } from '../lib/state.svelte';
 
   let newLabel = $state('');
   let busy = $state(false);
+  let enCourses = $state(false);
 
   const open = $derived(app.shopping.filter((item) => !item.checked));
   const done = $derived(app.shopping.filter((item) => item.checked));
@@ -142,6 +144,15 @@
       {/if}
     </div>
 
+    <button
+      class="btn primary block lg"
+      onclick={() => (enCourses = true)}
+      disabled={open.length === 0}
+    >
+      <Icon name="basket" size={18} />
+      Faire les courses
+    </button>
+
     <div class="row">
       <button class="btn grow" onclick={share} disabled={open.length === 0}>Partager</button>
       {#if done.length}
@@ -152,3 +163,7 @@
     </div>
   {/if}
 </div>
+
+{#if enCourses}
+  <CoursesMode onclose={() => (enCourses = false)} />
+{/if}

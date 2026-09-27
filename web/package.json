@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "check:timescale": "esbuild src/lib/timescale.ts --format=esm --outfile=.tmp-timescale.mjs && node scripts/check-timescale.mjs; rm -f .tmp-timescale.mjs"
+    "check:timescale": "esbuild src/lib/timescale.ts --format=esm --outfile=.tmp-timescale.mjs && node scripts/check-timescale.mjs; rm -f .tmp-timescale.mjs",
+    "check:rayons": "esbuild src/lib/rayons.ts --format=esm --outfile=.tmp-rayons.mjs && node scripts/check-rayons.mjs; rm -f .tmp-rayons.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",

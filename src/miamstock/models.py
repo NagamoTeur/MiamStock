@@ -155,6 +155,9 @@ class ShoppingItemOut(BaseModel):
     auto: bool
     image_url: str | None = None
     brand: str | None = None
+    # Servent au classement en rayon, côté client.
+    categories: str | None = None
+    location_kind: str | None = None
 
 
 class CatalogEntry(BaseModel):
@@ -194,6 +197,30 @@ class StatsOut(BaseModel):
     # Part de ce qui est sorti du stock qui l'a été par la poubelle.
     waste_ratio: float
     most_wasted: list[WastedProduct]
+
+
+class ConsumptionEntry(BaseModel):
+    """Rythme auquel un produit quitte le stock, et ce qu'on peut en déduire.
+
+    « Sortie » réunit le consommé et le jeté : les deux vident l'étagère, et
+    c'est la vitesse à laquelle elle se vide qui dit quand racheter. Le
+    gaspillage reste compté séparément pour ne rien maquiller.
+    """
+
+    barcode: str
+    name: str
+    brand: str | None = None
+    in_stock: int
+    min_quantity: int
+    consumed: int
+    discarded: int
+    per_week: float
+    events: int
+    days_left: float | None = None
+    suggested_min: int | None = None
+    # Faux tant qu'il n'y a pas assez d'historique : un rythme tiré d'un seul
+    # mouvement serait une invention présentée comme une mesure.
+    reliable: bool = False
 
 
 class SummaryOut(BaseModel):

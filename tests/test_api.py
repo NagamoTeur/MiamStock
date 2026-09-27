@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from datetime import date, timedelta
 
 NUTELLA = "3017620422003"
@@ -486,3 +487,99 @@ def test_conservation_deduite_dune_dlc_future(client):
         json={"barcode": YAOURT, "quantity": 1, "expires_on": in_days(21)},
     )
     assert client.get(f"/api/products/{YAOURT}").json()["default_shelf_life_days"] == 21
+
+
+# --- Rythme de consommation ---------------------------------------------------
+
+
+def test_produit_sans_sortie_absent_du_rythme(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 5})
+    assert client.get("/api/consumption").json() == []
+
+
+def test_rythme_rapporte_a_la_periode_observee(client, journal):
+    """Quatre unités sorties sur 28 jours font une par semaine, pas 4/90e."""
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    for age in (28, 21, 14, 7):
+        journal(YAOURT, "out", 1, age)
+
+    entry = client.get("/api/consumption").json()[0]
+    assert entry["consumed"] == 4
+    assert entry["per_week"] == 1.0
+    assert entry["events"] == 4
+
+
+def test_le_jete_compte_dans_ce_qui_vide_letagere(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    journal(YAOURT, "out", 2, 21)
+    journal(YAOURT, "discard", 2, 14)
+    journal(YAOURT, "out", 3, 7)
+
+    entry = client.get("/api/consumption").json()[0]
+    assert entry["consumed"] == 5
+    assert entry["discarded"] == 2
+    # 7 unités sorties sur 21 jours observés.
+    assert entry["per_week"] == pytest.approx(7 / 21 * 7, abs=0.05)
+
+
+def test_historique_trop_maigre_nest_pas_presente_comme_mesure(client, journal):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 5})
+    journal(NUTELLA, "out", 1, 2)
+    journal(NUTELLA, "out", 1, 1)
+
+    entry = client.get("/api/consumption").json()[0]
+    assert entry["reliable"] is False
+    assert entry["suggested_min"] is None
+
+
+def test_seuil_propose_couvre_une_semaine_de_consommation(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    for age in (28, 21, 14, 7):
+        journal(YAOURT, "out", 4, age)
+
+    entry = client.get("/api/consumption").json()[0]
+    assert entry["reliable"] is True
+    assert entry["per_week"] == 4.0
+    assert entry["suggested_min"] == 4
+
+
+def test_duree_de_couverture_reglable(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    for age in (28, 21, 14, 7):
+        journal(YAOURT, "out", 4, age)
+
+    quinzaine = client.get("/api/consumption", params={"cover_days": 14}).json()[0]
+    assert quinzaine["suggested_min"] == 8
+
+
+def test_jours_restants_et_tri_par_urgence(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 2})
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 20})
+    for age in (28, 21, 14, 7):
+        journal(YAOURT, "out", 4, age)
+        journal(NUTELLA, "out", 1, age)
+
+    entries = client.get("/api/consumption").json()
+    # Le Skyr part à 4 par semaine avec 2 en stock : il s'épuise bien avant.
+    assert entries[0]["barcode"] == YAOURT
+    assert entries[0]["days_left"] == pytest.approx(3.5, abs=0.1)
+    assert entries[1]["days_left"] > entries[0]["days_left"]
+
+
+def test_fenetre_dobservation_exclut_les_vieux_mouvements(client, journal):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 20})
+    journal(YAOURT, "out", 50, 200)  # hors fenêtre de 90 jours
+    journal(YAOURT, "out", 1, 10)
+
+    entry = client.get("/api/consumption", params={"days": 90}).json()[0]
+    assert entry["consumed"] == 1
+
+
+def test_ligne_de_courses_porte_de_quoi_deviner_son_rayon(client, locations):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 1,
+                                       "location_id": locations["fridge"]})
+    client.post("/api/stock/out", json={"barcode": YAOURT, "quantity": 1})
+
+    item = client.get("/api/shopping").json()[0]
+    assert item["categories"] is not None
+    assert item["location_kind"] == "fridge"

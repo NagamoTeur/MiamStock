@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
@@ -11,6 +12,7 @@ from ..config import settings
 from ..db import get_conn, log_event, now_iso, transaction
 from ..models import (
     CatalogEntry,
+    ConsumptionEntry,
     HistoryEntry,
     LookupOut,
     LotPatch,
@@ -425,6 +427,84 @@ def read_history(
             params,
         ).fetchall()
     return [HistoryEntry(**dict(row)) for row in rows]
+
+
+@router.get("/consumption", response_model=list[ConsumptionEntry])
+def read_consumption(
+    days: int = Query(default=90, ge=7, le=3650),
+    cover_days: int = Query(default=7, ge=1, le=90),
+) -> list[ConsumptionEntry]:
+    """Le rythme auquel chaque produit quitte le stock, mesuré sur le journal.
+
+    Le rythme est rapporté à la période réellement observée — du premier
+    mouvement de la fenêtre à aujourd'hui — et non à la fenêtre entière : sur
+    une application utilisée depuis trois semaines, diviser par quatre-vingt-dix
+    jours sous-estimerait la consommation d'un facteur quatre.
+
+    `cover_days` est la durée que le seuil proposé doit couvrir : par défaut une
+    semaine, soit « garde de quoi tenir jusqu'aux prochaines courses ».
+    """
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT p.barcode, p.name, p.brand, p.min_quantity,
+                   COALESCE(SUM(CASE WHEN e.kind = 'out'     THEN e.quantity END), 0) AS consumed,
+                   COALESCE(SUM(CASE WHEN e.kind = 'discard' THEN e.quantity END), 0) AS discarded,
+                   COUNT(e.id) AS events,
+                   MIN(e.at)   AS first_at,
+                   MAX(e.at)   AS last_at,
+                   (SELECT COALESCE(SUM(l.quantity), 0) FROM lots l WHERE l.barcode = p.barcode)
+                        AS in_stock
+            FROM products p
+            JOIN events e ON e.barcode = p.barcode
+            WHERE e.at >= ? AND e.kind IN ('out', 'discard')
+            GROUP BY p.barcode
+            """,
+            (since,),
+        ).fetchall()
+
+    entries: list[ConsumptionEntry] = []
+    for row in rows:
+        depleted = int(row["consumed"]) + int(row["discarded"])
+        if depleted <= 0:
+            continue
+
+        first = datetime.fromisoformat(row["first_at"])
+        last = datetime.fromisoformat(row["last_at"])
+        # Plancher à sept jours : sur quelques heures d'observation, tout rythme
+        # ramené à la semaine serait un chiffre inventé.
+        observed_days = max((now - first).days, 7)
+        per_week = round(depleted / observed_days * 7, 2)
+
+        # Un rythme n'a de sens qu'avec plusieurs mouvements étalés dans le temps.
+        reliable = int(row["events"]) >= 3 and (last - first).days >= 14
+
+        per_day = per_week / 7
+        entries.append(
+            ConsumptionEntry(
+                barcode=row["barcode"],
+                name=row["name"],
+                brand=row["brand"],
+                in_stock=int(row["in_stock"]),
+                min_quantity=int(row["min_quantity"]),
+                consumed=int(row["consumed"]),
+                discarded=int(row["discarded"]),
+                per_week=per_week,
+                events=int(row["events"]),
+                days_left=round(int(row["in_stock"]) / per_day, 1) if per_day > 0 else None,
+                suggested_min=max(1, ceil(per_week * cover_days / 7)) if reliable else None,
+                reliable=reliable,
+            )
+        )
+
+    # Le plus pressant d'abord : ce qui s'épuise le plus tôt.
+    return sorted(
+        entries,
+        key=lambda entry: (entry.days_left is None, entry.days_left or 0.0),
+    )
 
 
 @router.get("/stats", response_model=StatsOut)

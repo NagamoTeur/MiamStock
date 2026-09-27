@@ -1,5 +1,6 @@
 import type {
   CatalogEntry,
+  ConsumptionEntry,
   HistoryEntry,
   Location,
   Product,
@@ -145,6 +146,14 @@ export const api = {
   },
 
   stats: (days = 90) => request<Stats>(`/stats?days=${days}`),
+
+  consumption: (params: { days?: number; cover_days?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.days) query.set('days', String(params.days));
+    if (params.cover_days) query.set('cover_days', String(params.cover_days));
+    const suffix = query.toString();
+    return request<ConsumptionEntry[]>(`/consumption${suffix ? `?${suffix}` : ''}`);
+  },
 
   shopping: () => request<ShoppingItem[]>('/shopping'),
   addShopping: (body: { barcode?: string | null; label?: string | null; quantity?: number }) =>

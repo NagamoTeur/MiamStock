@@ -13,6 +13,14 @@ SQLite, le tout dans un seul process à héberger sur le Proxmox.
   plus critique au moins. Le congélateur n'alerte qu'une fois la date passée.
 - **Liste de courses** : alimentée automatiquement par les seuils, complétée à la
   main, partageable en un tap.
+- **Mode courses** : un écran plein, sans rien d'autre, où la liste est groupée
+  **par rayon** plutôt que par ordre alphabétique — parce qu'en magasin on suit
+  un trajet. Cibles de 60 px, et les lignes cochées se barrent sur place : une
+  liste qui se réorganise sous le pouce fait perdre le fil.
+- **Rythme de consommation** : l'application mesure la vitesse à laquelle chaque
+  produit quitte le stock et en déduit le seuil de réappro. Mesuré sur le journal
+  réel des sorties, jamais estimé : tant qu'il n'y a pas assez de mouvements
+  étalés dans le temps, elle le dit au lieu d'inventer un chiffre.
 
 ## Démarrage rapide (développement)
 
@@ -238,6 +246,7 @@ src/miamstock/
 web/src/
 ├── lib/scanner.ts        BarcodeDetector natif, repli ZXing
 ├── lib/timescale.ts      l'échelle de temps non linéaire de la frise (module pur)
+├── lib/rayons.ts         classement des produits en rayons de magasin (module pur)
 ├── lib/icons.ts          jeu d'icônes dessiné, grille 24, trait 1,7
 ├── lib/state.svelte.ts   état partagé (runes Svelte 5)
 ├── lib/desktop.svelte.ts état propre au PC : vue, sélection, catalogue
@@ -263,6 +272,17 @@ Quelques décisions qui méritent d'être connues avant de toucher au code :
 - **ZXing n'est téléchargé que par les navigateurs qui en ont besoin.** Sur
   Chrome/Android, `BarcodeDetector` fait le travail nativement et les 390 ko du
   décodeur de secours ne sont jamais chargés.
+- **Le rythme de consommation est rapporté à la période réellement observée**,
+  pas à la fenêtre d'analyse. Sur une application utilisée depuis trois semaines,
+  diviser par quatre-vingt-dix jours sous-estimerait la consommation d'un facteur
+  quatre. Et un rythme tiré de deux mouvements du même jour n'est pas une mesure :
+  l'application refuse alors de proposer un seuil.
+- **Le classement en rayon est grossier, et c'est voulu.** Les catégories d'Open
+  Food Facts décrivent un aliment, pas un emplacement en magasin. Se tromper de
+  rayon fait perdre dix secondes ; une taxonomie fine serait ingérable à la main.
+  Les pièges réels sont les produits composés — un plat préparé au poulet n'est
+  pas de la boucherie, un biscuit apéritif n'est pas de l'épicerie sucrée — et
+  `npm --prefix web run check:rayons` les vérifie.
 - **L'échelle de temps de la frise est non linéaire et inversible.** Inversible
   parce que lâcher une puce doit retrouver exactement la date visée :
   `npm --prefix web run check:timescale` le vérifie, ainsi que la monotonie et
@@ -288,6 +308,7 @@ est configuré.
 | `GET` | `/products` | Catalogue : tout produit connu, stock compris. |
 | `GET` | `/history` | Journal des bips (`barcode`, `kind`, `limit`). |
 | `GET` | `/stats` | Entrées, sorties, rebuts et taux de gaspillage. |
+| `GET` | `/consumption` | Rythme par produit, autonomie restante, seuil suggéré. |
 
 Documentation interactive : `/docs`.
 

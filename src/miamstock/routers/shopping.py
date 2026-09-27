@@ -24,14 +24,19 @@ def _rows_to_items(rows) -> list[ShoppingItemOut]:
                 auto=bool(row["auto"]),
                 image_url=row["image_url"],
                 brand=row["brand"],
+                categories=row["categories"],
+                location_kind=row["location_kind"],
             )
         )
     return items
 
 
 SELECT_ITEMS = """
-SELECT s.*, p.name AS product_name, p.image_url, p.brand
-FROM shopping_items s LEFT JOIN products p ON p.barcode = s.barcode
+SELECT s.*, p.name AS product_name, p.image_url, p.brand, p.categories,
+       l.kind AS location_kind
+FROM shopping_items s
+LEFT JOIN products p  ON p.barcode = s.barcode
+LEFT JOIN locations l ON l.id = p.default_location_id
 """
 
 

@@ -24,10 +24,28 @@ Deux situations distinctes, par le même foyer :
 
 ## Product Purpose
 
-Savoir ce qu'il y a dans la maison, ce qui périme quand, et ce qu'il faut
-racheter — sans tenir de tableur. Le succès se mesure à deux choses : ne plus
-jeter d'aliments périmés faute de les avoir vus, et ne plus racheter ce qu'on a
-déjà en double.
+Savoir ce qu'il y a dans la maison et quand racheter — sans tenir de tableur.
+
+**Correction issue de l'usage réel**, après la première mise en service : la
+gestion des dates limites n'est pas le centre de ce produit, contrairement à ce
+que supposait la conception initiale. L'utilisateur ne saisit pas les DLC. Le
+gros du stock est une épicerie sèche, salée et sucrée, pour laquelle une date
+limite n'a pas de sens exploitable ; la part réfrigérée, seule vraiment
+concernée par les dates, reste minoritaire.
+
+Le succès se mesure donc d'abord à : ne plus racheter ce qu'on a déjà, et ne
+plus découvrir un manque au moment de cuisiner.
+
+Les sorties **sont** enregistrées, le plus souvent au bouton « − 1 » depuis la
+liste de stock. Le journal contient donc un signal de consommation réel, ce qui
+rend calculable un rythme par produit — et non seulement estimable par
+comptage. Ne pas jeter reste un bénéfice,
+mais secondaire et limité au frais.
+
+Conséquence pour la conception : le suivi par lot et l'ordre FIFO restent
+justes et utiles — ils gèrent correctement les quantités — mais la date n'est
+plus l'axe structurant de l'expérience. Toute surface qui présuppose des DLC
+renseignées sera majoritairement vide chez cet utilisateur.
 
 ## Positioning
 
@@ -103,6 +121,9 @@ apparaître dans l'interface.
 
 ## Product Principles
 
+0. **Le stock et le réassort priment sur les dates.** L'axe utile est « combien
+   il m'en reste et quand racheter », pas « quand ça périme ». Une fonctionnalité
+   qui exige de saisir une date pour être utile sera inutilisée.
 1. **Le bip prime sur tout le reste.** Chaque écran, chaque menu, chaque
    confirmation placée entre viser un code-barres et l'avoir enregistré est une
    régression. Le téléphone se juge au nombre de gestes, pas au nombre d'options.

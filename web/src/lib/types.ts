@@ -68,6 +68,8 @@ export interface ShoppingItem {
   auto: boolean;
   image_url: string | null;
   brand: string | null;
+  categories: string | null;
+  location_kind: string | null;
 }
 
 export interface Summary {
@@ -112,4 +114,19 @@ export interface Stats {
   discarded: number;
   waste_ratio: number;
   most_wasted: { barcode: string; name: string; quantity: number }[];
+}
+
+export interface ConsumptionEntry {
+  barcode: string;
+  name: string;
+  brand: string | null;
+  in_stock: number;
+  min_quantity: number;
+  consumed: number;
+  discarded: number;
+  per_week: number;
+  events: number;
+  days_left: number | null;
+  suggested_min: number | null;
+  reliable: boolean;
 }
