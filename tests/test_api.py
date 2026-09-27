@@ -340,3 +340,149 @@ def test_historique_journalise_les_bips(client):
     client.post("/api/stock/out", json={"barcode": NUTELLA, "quantity": 1})
     kinds = [event["kind"] for event in client.get("/api/history").json()]
     assert "in" in kinds and "out" in kinds
+
+
+# --- Fiche produit et saisie manuelle enrichie --------------------------------
+
+
+def test_produit_inconnu_accepte_ses_propres_valeurs(client):
+    line = client.post(
+        "/api/stock/in",
+        json={
+            "barcode": "2000000000012",
+            "quantity": 3,
+            "name": "Confiture de mirabelles",
+            "brand": "Mamie",
+            "net_quantity": "350 g",
+        },
+    ).json()
+    product = line["product"]
+    assert product["name"] == "Confiture de mirabelles"
+    assert product["brand"] == "Mamie"
+    assert product["net_quantity"] == "350 g"
+    assert product["source"] == "manual"
+
+
+def test_valeurs_saisies_priment_sur_openfoodfacts(client):
+    # Open Food Facts nomme ce code « Nutella » ; l'utilisateur sait mieux.
+    line = client.post(
+        "/api/stock/in",
+        json={"barcode": NUTELLA, "name": "Pâte à tartiner maison", "brand": "Maison"},
+    ).json()
+    assert line["product"]["name"] == "Pâte à tartiner maison"
+    assert line["product"]["brand"] == "Maison"
+    # Les champs non saisis restent ceux d'Open Food Facts.
+    assert line["product"]["net_quantity"] == "400 g"
+
+
+def test_corriger_un_produit_deja_en_base(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    product = client.patch(
+        f"/api/products/{NUTELLA}",
+        json={"name": "Nutella (grand pot)", "brand": "Ferrero", "net_quantity": "750 g"},
+    ).json()
+    assert product["name"] == "Nutella (grand pot)"
+    assert product["brand"] == "Ferrero"
+    assert product["net_quantity"] == "750 g"
+
+
+def test_second_bip_nefface_pas_une_correction_manuelle(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    client.patch(f"/api/products/{NUTELLA}", json={"name": "Le pot du petit-déj"})
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    assert client.get(f"/api/products/{NUTELLA}").json()["name"] == "Le pot du petit-déj"
+
+
+# --- Catalogue ----------------------------------------------------------------
+
+
+def test_catalogue_garde_les_produits_a_zero(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    client.post("/api/stock/out", json={"barcode": NUTELLA, "quantity": 1})
+
+    # Le stock est vide, le catalogue non : c'est toute la différence.
+    assert client.get("/api/stock").json() == []
+    catalog = client.get("/api/products").json()
+    assert len(catalog) == 1
+    assert catalog[0]["in_stock"] == 0
+    assert catalog[0]["on_shopping_list"] is True
+
+
+def test_catalogue_compte_lots_et_prochaine_dlc(client, locations):
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 2,
+                                       "expires_on": in_days(20),
+                                       "location_id": locations["fridge"]})
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 2,
+                                       "expires_on": in_days(4),
+                                       "location_id": locations["fridge"]})
+    entry = client.get("/api/products").json()[0]
+    assert entry["in_stock"] == 4
+    assert entry["lot_count"] == 2
+    assert entry["next_expiry"] == in_days(4)
+
+
+def test_catalogue_filtre_et_recherche(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 1})
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 1})
+    client.post("/api/stock/out", json={"barcode": YAOURT, "quantity": 1})
+
+    assert len(client.get("/api/products", params={"in_stock": True}).json()) == 1
+    assert len(client.get("/api/products", params={"in_stock": False}).json()) == 1
+    assert len(client.get("/api/products", params={"q": "nut"}).json()) == 1
+
+
+# --- Historique ---------------------------------------------------------------
+
+
+def test_historique_filtrable_par_produit_et_par_type(client):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 2})
+    client.post("/api/stock/in", json={"barcode": YAOURT, "quantity": 2})
+    client.post("/api/stock/out", json={"barcode": NUTELLA, "quantity": 1})
+
+    par_produit = client.get("/api/history", params={"barcode": NUTELLA}).json()
+    assert {event["kind"] for event in par_produit} == {"in", "out"}
+    assert all(event["barcode"] == NUTELLA for event in par_produit)
+
+    entrees = client.get("/api/history", params={"kind": "in"}).json()
+    assert len(entrees) == 2
+    assert entrees[0]["name"] is not None
+
+
+# --- Statistiques -------------------------------------------------------------
+
+
+def test_statistiques_calculent_le_gaspillage(client):
+    line = client.post("/api/stock/in", json={"barcode": NUTELLA, "quantity": 10}).json()
+    client.post("/api/stock/out", json={"barcode": NUTELLA, "quantity": 3})
+    client.delete(f"/api/lots/{line['lots'][0]['id']}")  # jette les 7 restants
+
+    stats = client.get("/api/stats").json()
+    assert stats["entered"] == 10
+    assert stats["consumed"] == 3
+    assert stats["discarded"] == 7
+    assert stats["waste_ratio"] == 0.7
+    assert stats["most_wasted"][0]["name"] == "Nutella"
+    assert stats["most_wasted"][0]["quantity"] == 7
+
+
+def test_statistiques_sans_donnees_ne_divisent_pas_par_zero(client):
+    stats = client.get("/api/stats").json()
+    assert stats["waste_ratio"] == 0.0
+    assert stats["most_wasted"] == []
+
+
+def test_produit_deja_perime_ne_fixe_pas_une_conservation_negative(client):
+    """Rentrer un produit dont la DLC est passée ne dit rien de sa conservation."""
+    client.post(
+        "/api/stock/in",
+        json={"barcode": YAOURT, "quantity": 1, "expires_on": in_days(-2)},
+    )
+    assert client.get(f"/api/products/{YAOURT}").json()["default_shelf_life_days"] is None
+
+
+def test_conservation_deduite_dune_dlc_future(client):
+    client.post(
+        "/api/stock/in",
+        json={"barcode": YAOURT, "quantity": 1, "expires_on": in_days(21)},
+    )
+    assert client.get(f"/api/products/{YAOURT}").json()["default_shelf_life_days"] == 21
