@@ -7,3 +7,9 @@ __pycache__/
 .venv/
 web/dist/
 web/node_modules/
+.tmp-timescale.mjs
+# Captures de la revue de finition : preuves d'une exécution, pas des sources.
+.impeccable/review/
+.impeccable/build/
+.impeccable/mocks/
+.impeccable/questions/

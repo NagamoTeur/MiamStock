@@ -163,6 +163,39 @@ Le script passe par `sqlite3 .backup`, qui prend un verrou propre : copier le
 fichier `.db` à chaud produirait une base corrompue dès qu'un bip tombe au
 mauvais moment. Ajoute-le au cron, et laisse le snapshot Proxmox faire le reste.
 
+## Deux surfaces, deux métiers
+
+L'application bascule d'elle-même à 1024 px. Ce n'est pas la même interface
+redimensionnée : le téléphone et le PC ne font pas le même travail.
+
+**Le téléphone capture.** Tout est jugé au nombre de gestes entre viser un
+code-barres et l'avoir enregistré. Bascule « Je range / Je consomme » mémorisée,
+dates par boutons rapides, emplacement pré-rempli par l'historique du produit.
+
+**Le PC corrige et donne la vue d'ensemble**, et n'a pas de scanner — une caméra
+de portable ne sert à rien devant un placard. Quatre vues, au clavier :
+
+- **La frise des dates** — l'écran d'accueil. Le temps est l'axe horizontal, à
+  échelle **non linéaire** : les sept prochains jours occupent la moitié de la
+  largeur, parce que c'est là que les décisions se prennent, et six mois tiennent
+  dans le reste. Un couloir par emplacement, chaque lot posé à sa date. Faire
+  glisser une puce change sa date horizontalement et son emplacement
+  verticalement — et la lâcher dans le couloir du congélateur éteint son alerte,
+  puisque c'est précisément ce que congeler veut dire. `Échap` annule un glisser
+  en cours. Les produits sans date vivent dans une bande à part : une conserve
+  n'a pas sa place sur une frise et on ne lui invente pas une date.
+- **Le registre** — un lot par ligne, colonnes triables et filtrables, édition en
+  place, sélection multiple et actions groupées (sortir, déplacer, jeter).
+- **Le catalogue** — tout produit jamais scanné, y compris à zéro, avec ses
+  réglages durables : seuil mini, emplacement par défaut, durée de conservation.
+- **Le journal** — le vrai relevé des bips, et le taux de gaspillage qui en
+  découle : la part de ce qui sort du stock qui finit à la poubelle. Calculé, pas
+  estimé.
+
+Raccourcis : `/` ou `Ctrl+K` ouvre la saisie rapide (codes-barres à la chaîne
+sans jamais toucher la souris), `1` à `4` changent de vue, `Échap` vide la
+sélection.
+
 ## Installation sur le téléphone
 
 Ouvre l'URL HTTPS, puis :
@@ -203,9 +236,14 @@ src/miamstock/
 ├── main.py            application FastAPI, service de la PWA
 └── routers/           session · stock · shopping
 web/src/
-├── lib/scanner.ts     BarcodeDetector natif, repli ZXing
-├── lib/state.svelte.ts  état global (runes Svelte 5)
-└── components/        scan, stock, DLC, courses, réglages
+├── lib/scanner.ts        BarcodeDetector natif, repli ZXing
+├── lib/timescale.ts      l'échelle de temps non linéaire de la frise (module pur)
+├── lib/icons.ts          jeu d'icônes dessiné, grille 24, trait 1,7
+├── lib/state.svelte.ts   état partagé (runes Svelte 5)
+├── lib/desktop.svelte.ts état propre au PC : vue, sélection, catalogue
+├── lib/ProductFields.svelte  la fiche produit, partagée par les deux surfaces
+├── components/           surface téléphone
+└── desktop/              surface PC : frise, registre, catalogue, journal
 ```
 
 Quelques décisions qui méritent d'être connues avant de toucher au code :
@@ -225,6 +263,10 @@ Quelques décisions qui méritent d'être connues avant de toucher au code :
 - **ZXing n'est téléchargé que par les navigateurs qui en ont besoin.** Sur
   Chrome/Android, `BarcodeDetector` fait le travail nativement et les 390 ko du
   décodeur de secours ne sont jamais chargés.
+- **L'échelle de temps de la frise est non linéaire et inversible.** Inversible
+  parce que lâcher une puce doit retrouver exactement la date visée :
+  `npm --prefix web run check:timescale` le vérifie, ainsi que la monotonie et
+  l'empilement des puces qui se chevauchent.
 
 ## API
 
@@ -243,7 +285,9 @@ est configuré.
 | `PATCH` | `/products/{code}` | Seuil mini, emplacement par défaut, nom. |
 | `GET`/`POST`/`PATCH`/`DELETE` | `/shopping` | Liste de courses. |
 | `GET` | `/summary` | Compteurs pour les badges d'onglets. |
-| `GET` | `/history` | Journal des bips. |
+| `GET` | `/products` | Catalogue : tout produit connu, stock compris. |
+| `GET` | `/history` | Journal des bips (`barcode`, `kind`, `limit`). |
+| `GET` | `/stats` | Entrées, sorties, rebuts et taux de gaspillage. |
 
 Documentation interactive : `/docs`.
 

@@ -1,0 +1,338 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-27T00:00:00Z",
+  "title": "Design System: MiamStock",
+  "extensions": {
+    "colorMeta": {
+      "fond": {
+        "role": "neutral",
+        "displayName": "Vert-charbon",
+        "canonical": "#0d1310",
+        "lightValue": "#f5f7f4",
+        "note": "Fond de l'application et des en-têtes collants (axe de la frise, en-têtes de tableau).",
+        "tonalRamp": ["#060a08", "#0d1310", "#151e19", "#1d2a24", "#2c3e36", "#4c6a5d", "#7c9c8c", "#c3d8cc"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface élevée",
+        "canonical": "#151e19",
+        "lightValue": "#ffffff",
+        "note": "Cartes, feuilles modales, panneau latéral, puces de lot, toasts, barre de commande.",
+        "tonalRamp": ["#070b09", "#0e1512", "#151e19", "#1e2a24", "#2b3c33", "#496457", "#7a9a89", "#c2d7cb"]
+      },
+      "champ": {
+        "role": "neutral",
+        "displayName": "Champ",
+        "canonical": "#1b2721",
+        "lightValue": "#eef1ed",
+        "note": "Fond des entrées, boutons neutres, steppers, segments, touches kbd.",
+        "tonalRamp": ["#090d0b", "#111a15", "#1b2721", "#25352d", "#33493e", "#527065", "#82a292", "#c7dacf"]
+      },
+      "trait": {
+        "role": "neutral",
+        "displayName": "Trait",
+        "canonical": "#253630",
+        "lightValue": "#dde3dd",
+        "note": "La bordure d'un pixel : principal outil de découpe et de profondeur du système.",
+        "tonalRamp": ["#0b100e", "#182320", "#253630", "#31463e", "#40594f", "#5e7c70", "#8bab9d", "#cddfd6"]
+      },
+      "texte": {
+        "role": "neutral",
+        "displayName": "Texte plein",
+        "canonical": "#e8f0ea",
+        "lightValue": "#131a15",
+        "note": "La donnée. Contraste mesuré : ≥ 12:1 dans les deux thèmes.",
+        "tonalRamp": ["#131a15", "#22302a", "#3a5147", "#577a6c", "#7ba294", "#a6c7ba", "#cfe2d7", "#e8f0ea"]
+      },
+      "texte-attenue": {
+        "role": "neutral",
+        "displayName": "Texte atténué",
+        "canonical": "#93a69b",
+        "lightValue": "#5c6a60",
+        "note": "Libellés, légendes, en-têtes de tableau. Mesuré 5,29:1 sur le fond en thème clair.",
+        "tonalRamp": ["#141a17", "#23302a", "#3b5148", "#587a6d", "#7b9d8e", "#93a69b", "#b9cdc2", "#dde9e3"]
+      },
+      "texte-efface": {
+        "role": "neutral",
+        "displayName": "Texte effacé",
+        "canonical": "#7c8f84",
+        "lightValue": "#626f67",
+        "note": "Onglets au repos, compteurs, repères mineurs de l'axe. Paire la plus basse du produit : 4,89:1 en clair, 5,47:1 en sombre.",
+        "tonalRamp": ["#121714", "#202b25", "#364842", "#50685e", "#6b857a", "#7c8f84", "#a6bbaf", "#d3e0d9"]
+      },
+      "menthe": {
+        "role": "primary",
+        "displayName": "Menthe froide",
+        "canonical": "#5fd39a",
+        "lightValue": "#0f7a50",
+        "note": "Aujourd'hui, actif, sélectionné, action primaire — et rien d'autre. Mesuré 4,97:1 sur le fond clair.",
+        "tonalRamp": ["#08251a", "#0c3e29", "#0f7a50", "#199a68", "#33b681", "#5fd39a", "#95e5be", "#d2f5e4"]
+      },
+      "menthe-encre": {
+        "role": "primary",
+        "displayName": "Encre d'accent",
+        "canonical": "#062018",
+        "lightValue": "#ffffff",
+        "note": "Texte posé sur un aplat menthe, jamais ailleurs.",
+        "tonalRamp": ["#030f0b", "#062018", "#0a3327", "#114938", "#1d6a53", "#3c9478", "#79bfa5", "#c4e5d7"]
+      },
+      "menthe-voile": {
+        "role": "primary",
+        "displayName": "Voile d'accent",
+        "canonical": "#1d3b2e",
+        "lightValue": "#dff2e7",
+        "note": "Fond de sélection : ligne de tableau retenue, puce choisie, couloir cible d'un glisser, vue active du rail. Accent sur voile mesuré 4,59:1 en clair.",
+        "tonalRamp": ["#0a1812", "#12281e", "#1d3b2e", "#2a5341", "#3a7159", "#589c7b", "#8cc7ad", "#dff2e7"]
+      },
+      "delai-large": {
+        "role": "secondary",
+        "displayName": "Délai large",
+        "canonical": "#5fd39a",
+        "lightValue": "#0f7a50",
+        "note": "La date est loin, ou l'emplacement est le congélateur (aucune alerte avant échéance).",
+        "tonalRamp": ["#08251a", "#0c3e29", "#0f7a50", "#199a68", "#33b681", "#5fd39a", "#95e5be", "#d2f5e4"]
+      },
+      "delai-proche": {
+        "role": "secondary",
+        "displayName": "Délai proche",
+        "canonical": "#e8b44a",
+        "lightValue": "#8a5e00",
+        "note": "La date approche. Mesuré 5,29:1 sur le fond clair.",
+        "tonalRamp": ["#291d00", "#453100", "#5e4300", "#8a5e00", "#b07c07", "#d09c26", "#e8b44a", "#f6dfa8"]
+      },
+      "delai-urgent": {
+        "role": "secondary",
+        "displayName": "Délai urgent",
+        "canonical": "#f0883e",
+        "lightValue": "#a44608",
+        "note": "La date est à quelques jours. Mesuré 5,64:1 sur le fond clair.",
+        "tonalRamp": ["#2c1203", "#4b1e05", "#6d2f06", "#a44608", "#cc5f14", "#e2742a", "#f0883e", "#f9c69a"]
+      },
+      "delai-depasse": {
+        "role": "secondary",
+        "displayName": "Délai dépassé",
+        "canonical": "#ef5f6b",
+        "lightValue": "#b8232f",
+        "note": "La date est passée. Seule couleur de délai à porter un second registre : perte et erreur (bandeau, badge, action destructrice, part jetée du journal). Mesuré 5,87:1 sur le fond clair.",
+        "tonalRamp": ["#2d070c", "#4d0f16", "#7a1721", "#b8232f", "#d43946", "#e44d59", "#ef5f6b", "#f9b3b9"]
+      }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Titre", "purpose": "Titre de la barre haute, un par écran." },
+      "subtitle": { "displayName": "Sous-titre", "purpose": "Feuille modale, panneau latéral, section de fiche." },
+      "body": { "displayName": "Corps", "purpose": "La donnée. 16 px minimum sur les entrées du téléphone (zoom iOS)." },
+      "secondary": { "displayName": "Secondaire", "purpose": "Légendes, marques, dates lues, aides." },
+      "label": { "displayName": "Étiquette", "purpose": "En-têtes de tableau, titres de section, en-têtes de l'axe. Seul emploi des capitales du système." },
+      "number": { "displayName": "Nombre", "purpose": "Quantités, valeurs de stepper, compteurs. Toujours en tabular-nums." }
+    },
+    "shadows": [
+      { "name": "surface", "value": "0 10px 30px rgb(0 0 0 / 0.45)", "purpose": "Feuilles modales et toasts (thème clair : 0 8px 24px rgb(19 26 21 / 0.12))." },
+      { "name": "puce", "value": "0 2px 6px rgb(0 0 0 / 0.3)", "purpose": "Puces de lot de la frise, posées juste au-dessus de leur couloir." },
+      { "name": "apercu-glisser", "value": "0 6px 18px rgb(0 0 0 / 0.45)", "purpose": "Puce fantôme qui suit le pointeur pendant un glisser." },
+      { "name": "barre-flottante", "value": "0 8px 24px rgb(0 0 0 / 0.45)", "purpose": "Barre d'actions groupées." },
+      { "name": "dialogue", "value": "0 18px 50px rgb(0 0 0 / 0.5)", "purpose": "Barre de commande, seul élément au-dessus de toute la fenêtre." }
+    ],
+    "motion": [
+      { "name": "etat", "value": "0.15s ease", "purpose": "Transitions d'état : bordure, fond, couleur, survol du rail et des puces." },
+      { "name": "enfoncement", "value": "transform 0.08s ease → scale(0.97)", "purpose": "Retour tactile au tapotement d'un bouton." },
+      { "name": "montee-surface", "value": "0.18s–0.22s ease-out", "purpose": "Apparition d'une feuille modale (rise 0.22s) ou d'un toast (0.18s)." },
+      { "name": "barre-groupee", "value": "0.18s cubic-bezier(0.2, 0.8, 0.3, 1)", "purpose": "Entrée de la barre d'actions groupées depuis 10 px plus bas." },
+      { "name": "reduced-motion", "value": "@media (prefers-reduced-motion: reduce) { animation: none }", "purpose": "Toute animation du produit est désactivée sous cette préférence." }
+    ],
+    "breakpoints": [
+      { "name": "desktop", "value": "1024px" },
+      { "name": "colonne-telephone", "value": "560px" }
+    ],
+    "layoutMeta": {
+      "rail": "76px",
+      "panel": "336px",
+      "lane-label": "132px",
+      "expired-col": "108px",
+      "chip-h": "30px",
+      "lane-min-h": "74px",
+      "row-h": "36px",
+      "chip-w": "158px",
+      "tabbar-h": "62px",
+      "undated-max-h": "28vh"
+    },
+    "timescale": {
+      "name": "L'échelle non linéaire de la frise",
+      "rule": "La piste du temps donne la moitié de sa largeur aux 7 prochains jours ; le reste est comprimé progressivement jusqu'à un horizon de deux ans. La courbe doit rester monotone et exactement inversible au jour près : c'est cette propriété, et non les chiffres, qui fait qu'une puce lâchée atterrit sur la date visée.",
+      "segments": [
+        { "fromDay": 0, "toDay": 7, "fromPct": 0, "toPct": 50 },
+        { "fromDay": 7, "toDay": 42, "fromPct": 50, "toPct": 77 },
+        { "fromDay": 42, "toDay": 180, "fromPct": 77, "toPct": 94 },
+        { "fromDay": 180, "toDay": 730, "fromPct": 94, "toPct": 100 }
+      ],
+      "horizonDays": 730,
+      "tickMinGap": "54px",
+      "source": "web/src/lib/timescale.ts"
+    },
+    "icons": {
+      "grid": "24 × 24",
+      "strokeWidth": 1.7,
+      "strokeLinecap": "round",
+      "strokeLinejoin": "round",
+      "fill": "none",
+      "color": "currentColor",
+      "sizes": [14, 15, 16, 20, 22, 44],
+      "rule": "Un emoji n'est jamais un pictogramme. Les cercles sont décrits en arcs pour ne garder qu'un seul type de nœud.",
+      "source": "web/src/lib/icons.ts"
+    },
+    "imagery": {
+      "rule": "Aucune image générée ni de banque n'est embarquée.",
+      "rasters": "web/public/icon-192.png, icon-512.png, apple-touch-icon.png, icon-maskable-512.png — rendus par rsvg-convert depuis icon.svg et icon-maskable.svg, commités dans le même dossier.",
+      "photos": "Les photographies de produits sont chargées à l'exécution depuis Open Food Facts et ne sont jamais empaquetées."
+    }
+  },
+  "components": [
+    {
+      "name": "Bouton primaire",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "L'action principale d'un écran ou d'une feuille : aplat menthe, encre d'accent.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Enregistrer</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; min-height: 46px; padding: 0 1rem; border-radius: var(--radius, 14px); background: var(--bg-input, #1b2721); border: 1px solid var(--border, #253630); color: var(--text, #e8f0ea); font: inherit; font-weight: 550; cursor: pointer; transition: transform 0.08s ease; } .ds-btn:active { transform: scale(0.97); } .ds-btn:focus-visible { outline: 2px solid var(--accent, #5fd39a); outline-offset: 2px; } .ds-btn-primary { background: var(--accent, #5fd39a); border-color: var(--accent, #5fd39a); color: var(--accent-ink, #062018); } .ds-btn:disabled { opacity: 0.45; cursor: not-allowed; }"
+    },
+    {
+      "name": "Bouton neutre et fantôme",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Action secondaire : fond champ, ou transparent en variante fantôme. La variante danger porte le rouge en texte et en bordure, jamais en aplat.",
+      "html": "<button class=\"ds-btn2\">Sortir</button> <button class=\"ds-btn2 ds-btn2-ghost\">Annuler</button> <button class=\"ds-btn2 ds-btn2-danger\">Jeter</button>",
+      "css": ".ds-btn2 { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; min-height: 46px; padding: 0 1rem; border-radius: var(--radius, 14px); background: var(--bg-input, #1b2721); border: 1px solid var(--border, #253630); color: var(--text, #e8f0ea); font: inherit; font-weight: 550; cursor: pointer; transition: transform 0.08s ease; } .ds-btn2:active { transform: scale(0.97); } .ds-btn2:focus-visible { outline: 2px solid var(--accent, #5fd39a); outline-offset: 2px; } .ds-btn2-ghost { background: transparent; } .ds-btn2-danger { color: var(--expired, #ef5f6b); border-color: color-mix(in srgb, var(--expired, #ef5f6b) 40%, transparent); }"
+    },
+    {
+      "name": "Pastille de filtre",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Filtre en pilule ; à l'état retenu, voile d'accent et bordure menthe.",
+      "html": "<span class=\"ds-chip\">Frigo</span> <span class=\"ds-chip ds-chip-on\">Cette semaine</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.7rem; border-radius: 999px; background: var(--bg-input, #1b2721); border: 1px solid var(--border, #253630); color: var(--text, #e8f0ea); font-size: 0.82rem; white-space: nowrap; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; } .ds-chip:hover { border-color: color-mix(in srgb, var(--accent, #5fd39a) 45%, var(--border, #253630)); } .ds-chip-on { background: var(--accent-soft, #1d3b2e); border-color: color-mix(in srgb, var(--accent, #5fd39a) 45%, transparent); }"
+    },
+    {
+      "name": "Carte",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Le conteneur de base du téléphone : surface élevée, bordure d'un pixel, rayon 20 px, aucune ombre au repos.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-t\">Skyr nature</div><div class=\"ds-card-s\">4 en stock · dans 2 j · 29 sept.</div></div>",
+      "css": ".ds-card { background: var(--bg-elevated, #151e19); border: 1px solid var(--border, #253630); border-radius: var(--radius-lg, 20px); padding: 0.9rem; color: var(--text, #e8f0ea); } .ds-card-t { font-weight: 600; } .ds-card-s { color: var(--text-dim, #93a69b); font-size: 0.85rem; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Champ de saisie",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Fond champ, bordure d'un pixel, 16 px de corps (en dessous, Safari iOS zoome au focus). Focus par contour menthe décalé.",
+      "html": "<input class=\"ds-input\" placeholder=\"Chercher un produit, une marque…\" />",
+      "css": ".ds-input { font: inherit; font-size: 16px; color: var(--text, #e8f0ea); background: var(--bg-input, #1b2721); border: 1px solid var(--border, #253630); border-radius: var(--radius, 14px); padding: 0.7rem 0.85rem; width: 100%; } .ds-input::placeholder { color: var(--text-faint, #7c8f84); } .ds-input:focus-visible { outline: 2px solid var(--accent, #5fd39a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Champ en ligne de tableau",
+      "kind": "input",
+      "refersTo": "input-desk",
+      "description": "Invisible au repos, révélé au survol, bordure menthe au focus. Un tableau ne montre ses champs que lorsqu'on s'approche d'eux.",
+      "html": "<input class=\"ds-inline\" value=\"4\" />",
+      "css": ".ds-inline { width: 100%; padding: 0.3rem 0.4rem; font: inherit; font-size: 0.85rem; border-radius: 8px; background: transparent; border: 1px solid transparent; color: var(--text, #e8f0ea); font-variant-numeric: tabular-nums; } .ds-inline:hover { border-color: var(--border, #253630); background: var(--bg-input, #1b2721); } .ds-inline:focus { outline: none; border-color: var(--accent, #5fd39a); background: var(--bg-input, #1b2721); }"
+    },
+    {
+      "name": "Rail de navigation (PC)",
+      "kind": "nav",
+      "refersTo": "rail-item",
+      "description": "Rail vertical de 76 px, teinté plus froid que le contenu : la hiérarchie des plans se lit sans une bordure supplémentaire.",
+      "html": "<nav class=\"ds-rail\"><button class=\"ds-rail-b ds-on\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17z\"/><path d=\"M12 7.5V12l3 1.8\"/></svg><span>Frise</span></button><button class=\"ds-rail-b\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3.5 20.5 7.5v9L12 20.5 3.5 16.5v-9z\"/><path d=\"M3.5 7.5 12 11.5l8.5-4\"/><path d=\"M12 11.5v9\"/></svg><span>Registre</span></button></nav>",
+      "css": ".ds-rail { width: 76px; display: flex; flex-direction: column; gap: 2px; padding: 0.7rem 0.4rem; background: color-mix(in srgb, var(--bg-elevated, #151e19) 70%, #0a1a14); border-right: 1px solid var(--border, #253630); } .ds-rail-b { display: grid; justify-items: center; gap: 4px; padding: 0.6rem 0.2rem; border: none; border-radius: 12px; background: none; color: var(--text-faint, #7c8f84); font: inherit; font-size: 0.66rem; line-height: 1.1; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; } .ds-rail-b:hover { color: var(--text-dim, #93a69b); background: color-mix(in srgb, var(--text, #e8f0ea) 6%, transparent); } .ds-rail-b.ds-on { color: var(--accent, #5fd39a); background: var(--accent-soft, #1d3b2e); } .ds-rail-b:focus-visible { outline: 2px solid var(--accent, #5fd39a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Barre d'onglets (téléphone)",
+      "kind": "nav",
+      "refersTo": "rail-item",
+      "description": "Barre fixe de 62 px, cinq colonnes égales, surface translucide floutée. Badge en pilule rouge détaché par un liseré de la couleur du fond.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-on\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8\"/><path d=\"M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8\"/><path d=\"M21 16v2.5a2.5 2.5 0 0 1-2.5 2.5H16\"/><path d=\"M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16\"/><path d=\"M7.5 8v8\"/><path d=\"M11 8v8\"/><path d=\"M14 8v8\"/><path d=\"M17 8v8\"/></svg><span>Scan</span></button><button class=\"ds-tab\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17z\"/><path d=\"M12 7.5V12l3 1.8\"/></svg><span>DLC</span><span class=\"ds-badge\">3</span></button></nav>",
+      "css": ".ds-tabs { display: grid; grid-template-columns: repeat(2, 1fr); height: 62px; background: color-mix(in srgb, var(--bg-elevated, #151e19) 92%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--border, #253630); } .ds-tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: none; background: none; color: var(--text-faint, #7c8f84); font: inherit; font-size: 0.66rem; cursor: pointer; } .ds-tab.ds-on { color: var(--accent, #5fd39a); } .ds-tab:focus-visible { outline: 2px solid var(--accent, #5fd39a); outline-offset: -2px; } .ds-badge { position: absolute; top: 4px; right: calc(50% - 26px); min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--expired, #ef5f6b); color: #fff; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--bg-elevated, #151e19); }"
+    },
+    {
+      "name": "Puce de lot",
+      "kind": "custom",
+      "refersTo": "lot-chip",
+      "description": "L'objet signature de la frise : un lot posé à sa date. Point de statut, quantité en 700, nom tronqué à 13 caractères. Saisissable au pointeur, horizontalement pour la date, verticalement pour l'emplacement.",
+      "html": "<button class=\"ds-lot\"><span class=\"ds-dot ds-dot-soon\"></span><span class=\"ds-lot-n\">4</span><span class=\"ds-lot-nm\">Skyr nature</span></button> <button class=\"ds-lot ds-sel\"><span class=\"ds-dot ds-dot-ok\"></span><span class=\"ds-lot-n\">6</span><span class=\"ds-lot-nm\">Steaks hachés</span></button>",
+      "css": ".ds-lot { display: inline-flex; align-items: center; gap: 0.4rem; height: 30px; padding: 0 0.5rem; border-radius: 9px; background: var(--bg-elevated, #151e19); border: 1px solid var(--border, #253630); color: var(--text, #e8f0ea); font: inherit; font-size: 0.79rem; cursor: grab; user-select: none; white-space: nowrap; overflow: hidden; box-shadow: 0 2px 6px rgb(0 0 0 / 0.3); transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease; } .ds-lot:hover { border-color: color-mix(in srgb, var(--accent, #5fd39a) 50%, var(--border, #253630)); } .ds-lot:active { cursor: grabbing; opacity: 0.55; } .ds-lot:focus-visible { outline: 2px solid var(--accent, #5fd39a); outline-offset: 2px; } .ds-sel { border-color: var(--accent, #5fd39a); background: var(--accent-soft, #1d3b2e); } .ds-lot-n { font-weight: 700; color: var(--text-dim, #93a69b); font-variant-numeric: tabular-nums; } .ds-lot-nm { overflow: hidden; text-overflow: ellipsis; max-width: 13ch; } .ds-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; } .ds-dot-ok { background: var(--ok, #5fd39a); } .ds-dot-soon { background: var(--soon, #e8b44a); } .ds-dot-urgent { background: var(--urgent, #f0883e); } .ds-dot-expired { background: var(--expired, #ef5f6b); }"
+    },
+    {
+      "name": "Barre d'actions groupées",
+      "kind": "custom",
+      "refersTo": "button",
+      "description": "Barre flottante centrée en bas de la vue PC, à bordure menthe pleine — la seule du système hors sélection. N'existe que lorsqu'il y a une sélection.",
+      "html": "<div class=\"ds-bulk\"><span class=\"ds-bulk-n\">3 sélectionnés</span><button class=\"ds-bulk-b\">Sortir</button><button class=\"ds-bulk-b ds-bulk-danger\">Jeter</button></div>",
+      "css": ".ds-bulk { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem; border-radius: 14px; background: var(--bg-elevated, #151e19); border: 1px solid var(--accent, #5fd39a); box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); color: var(--text, #e8f0ea); animation: ds-bulk-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1); } @keyframes ds-bulk-in { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .ds-bulk-n { font-weight: 650; padding: 0 0.3rem; font-variant-numeric: tabular-nums; } .ds-bulk-b { min-height: 34px; padding: 0 0.7rem; border-radius: 14px; background: var(--bg-input, #1b2721); border: 1px solid var(--border, #253630); color: inherit; font: inherit; font-weight: 550; cursor: pointer; } .ds-bulk-b:hover { border-color: color-mix(in srgb, var(--accent, #5fd39a) 50%, var(--border, #253630)); } .ds-bulk-danger { color: var(--expired, #ef5f6b); border-color: color-mix(in srgb, var(--expired, #ef5f6b) 40%, transparent); } @media (prefers-reduced-motion: reduce) { .ds-bulk { animation: none; } }"
+    },
+    {
+      "name": "Barre de commande",
+      "kind": "custom",
+      "refersTo": "input",
+      "description": "Ouverte par « / » ou Ctrl/⌘+K. Le champ n'a ni bordure ni contour de focus propres : c'est le dialogue entier qui est le focus.",
+      "html": "<div class=\"ds-cmd\"><input class=\"ds-cmd-i\" placeholder=\"Code-barres, ou nom d'un produit déjà connu…\" /><div class=\"ds-cmd-h\"><kbd class=\"ds-kbd\">Entrée</kbd> pour valider · <kbd class=\"ds-kbd\">Échap</kbd> pour fermer</div></div>",
+      "css": ".ds-cmd { width: min(560px, 92vw); background: var(--bg-elevated, #151e19); border: 1px solid var(--border, #253630); border-radius: var(--radius-lg, 20px); box-shadow: 0 18px 50px rgb(0 0 0 / 0.5); overflow: hidden; } .ds-cmd-i { width: 100%; border: none; border-radius: 0; background: transparent; color: var(--text, #e8f0ea); font: inherit; font-size: 1.05rem; padding: 1rem 1.1rem; } .ds-cmd-i::placeholder { color: var(--text-faint, #7c8f84); } .ds-cmd-i:focus-visible { outline: none; } .ds-cmd-h { padding: 0.6rem 1.1rem 0.8rem; border-top: 1px solid var(--border, #253630); color: var(--text-faint, #7c8f84); font-size: 0.76rem; } .ds-kbd { display: inline-block; padding: 0.05em 0.4em; border-radius: 5px; border: 1px solid var(--border, #253630); background: var(--bg-input, #1b2721); font-family: inherit; font-size: 0.85em; color: var(--text-dim, #93a69b); }"
+    },
+    {
+      "name": "Tableau dense",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Registre, catalogue et journal : en-têtes collants en capitales, cellules denses, colonnes numériques à droite en tabular-nums.",
+      "html": "<table class=\"ds-grid\"><thead><tr><th>Produit</th><th>Emplacement</th><th class=\"ds-num\">Qté</th></tr></thead><tbody><tr><td>Skyr nature</td><td>Frigo</td><td class=\"ds-num\">4</td></tr><tr class=\"ds-sel-row\"><td>Steaks hachés</td><td>Congélateur</td><td class=\"ds-num\">6</td></tr></tbody></table>",
+      "css": ".ds-grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; color: var(--text, #e8f0ea); } .ds-grid th { position: sticky; top: 0; z-index: 2; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim, #93a69b); font-weight: 600; padding: 0.6rem 0.7rem; background: var(--bg, #0d1310); border-bottom: 1px solid var(--border, #253630); white-space: nowrap; cursor: pointer; user-select: none; } .ds-grid th:hover { color: var(--text, #e8f0ea); } .ds-grid td { padding: 0.45rem 0.7rem; border-bottom: 1px solid color-mix(in srgb, var(--border, #253630) 65%, transparent); vertical-align: middle; } .ds-grid tbody tr:hover td { background: color-mix(in srgb, var(--text, #e8f0ea) 4%, transparent); } .ds-grid tbody tr.ds-sel-row td { background: var(--accent-soft, #1d3b2e); } .ds-grid .ds-num { text-align: right; font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le garde-manger à la lampe verte",
+    "overview": "MiamStock se lit comme un inventaire tenu à la main sous une lampe : fond vert-charbon presque noir, surfaces à peine plus claires, traits d'un pixel, et une seule couleur vivante — une menthe froide — qui ne sert qu'à dire « maintenant », « sélectionné » ou « valide ». Rien n'est décoratif : la densité vient des données, pas des ornements, et chaque chiffre est aligné en colonne parce qu'un inventaire dont les chiffres dansent ne se lit pas.\n\nLe monde a été posé par la surface téléphone et n'a pas changé depuis. La surface PC, livrée ensuite, n'a rien réinventé : elle hérite des mêmes jetons, des mêmes rayons, de la même pile système, et ne change que la composition. Le téléphone capture debout, au pouce, en une colonne de 560 px ; le PC corrige assis, au clavier, en trois colonnes pleine hauteur. Le système est un, les compositions sont deux, et c'est un principe, pas un accident.\n\nLa thèse de la surface PC est que le temps est l'axe et non une colonne : la date n'est pas une pastille dans la septième colonne d'un tableau trié, elle est la position horizontale de la chose. Ce que ce monde refuse : la grille de cartes pastel des applications de cuisine, l'illustration, et l'emoji tenant lieu de pictogramme.",
+    "keyCharacteristics": [
+      "Vert-charbon sombre par défaut, thème clair complet en miroir, aucun réglage manuel de thème.",
+      "Un seul accent (menthe) ; quatre couleurs de délai qui ne racontent qu'une échéance.",
+      "Pile système, aucune webfont, chiffres en tabular-nums partout.",
+      "Traits d'un pixel, rayons doux (14 px et 20 px), ombres portées douces et rares.",
+      "Un jeu d'icônes dessiné maison, grille 24, trait 1,7 — jamais d'emoji.",
+      "Interface intégralement en français, y compris les messages techniques."
+    ],
+    "rules": [
+      { "name": "La règle de la voix unique", "body": "La menthe ne dit que quatre choses : aujourd'hui, actif, sélectionné, action primaire. Elle n'est jamais une décoration, jamais un fond de page, jamais une couleur de titre.", "section": "colors" },
+      { "name": "La règle de la couleur qui date", "body": "Jaune, orange et rouge n'expriment qu'une échéance. Aucun de ces trois n'est autorisé à qualifier une catégorie, une marque ou un emplacement. Le rouge dispose seul d'un second registre, la perte et l'erreur, et il l'exerce sur le bandeau, la pastille de compteur, l'action destructrice et la part jetée du journal.", "section": "colors" },
+      { "name": "La règle des deux thèmes", "body": "Tout ce qui est écrit en couleur est écrit avec un nom de jeton, jamais avec une valeur littérale : c'est la seule chose qui fait tenir le thème clair. Un #hex posé dans un composant casse le miroir.", "section": "colors" },
+      { "name": "La règle de la colonne de chiffres", "body": "Tout chiffre susceptible de changer ou d'être comparé est en tabular-nums : quantités, valeurs, cellules et en-têtes de tableau, éléments <time>. La règle est posée globalement, pas composant par composant.", "section": "typography" },
+      { "name": "La règle des capitales rares", "body": "Les capitales et l'interlettrage élargi sont réservés aux étiquettes de structure sous 0,75 rem. Aucun titre, aucun bouton, aucune donnée n'est en capitales.", "section": "typography" },
+      { "name": "La règle de l'échelle non linéaire", "body": "Sur la frise, un jour n'a pas une largeur constante : la piste donne la moitié de sa largeur aux 7 prochains jours, puis 50→77 % aux jours 7 à 42, 77→94 % aux jours 42 à 180, et comprime tout le reste jusqu'à l'horizon de deux ans dans les 6 % restants. La raison est la décision : on choisit ce qu'on mange à sept jours, pas à trois mois. La courbe est monotone et exactement inversible au jour près — c'est cette propriété, et non les chiffres, qui doit survivre à toute évolution : elle est ce qui fait qu'une puce lâchée atterrit sur la date visée.", "section": "layout" },
+      { "name": "La règle des repères lisibles", "body": "Les repères de l'axe sont placés majeurs d'abord ; un repère mineur n'est posé que s'il reste au moins 54 px libres entre lui et tous les repères déjà placés.", "section": "layout" },
+      { "name": "La règle du défilement local", "body": "Aucune surface PC ne défile globalement. Le rail, l'axe et la barre haute sont fixes ; seules les zones de données défilent, chacune pour son compte.", "section": "layout" },
+      { "name": "La règle du trait avant l'ombre", "body": "La séparation par défaut est une bordure d'un pixel ou un changement de plan tonal. Une ombre ne se justifie que si l'élément flotte vraiment au-dessus du reste ; une carte au repos n'en porte pas.", "section": "elevation" },
+      { "name": "La règle de l'ombre décalée", "body": "Toute ombre a un décalage vertical et un flou. Une ombre sans décalage n'est qu'un halo, et un décalage sans flou appartient à un autre monde que celui-ci.", "section": "elevation" },
+      { "name": "La règle du trait unique", "body": "Toute nouvelle icône se dessine sur la même grille 24, au même trait 1,7, avec les mêmes extrémités arrondies, sans aplat. Une icône qui n'obéit pas à ces trois valeurs se voit immédiatement à côté des autres.", "section": "shapes" },
+      { "name": "La règle : un emoji n'est pas une icône", "body": "Aucun emoji ne tient lieu de pictogramme, nulle part. Cinq emoji côte à côte dans une barre d'onglets sont cinq dessins empruntés à cinq endroits : ni grille, ni graisse, ni style communs, et un rendu qui change avec le système. Un besoin de pictogramme se règle en ajoutant une entrée au jeu d'icônes.", "section": "shapes" },
+      { "name": "La règle de l'aperçu honnête", "body": "Un geste qui modifie une donnée annonce son résultat avant de le commettre : le glisser d'une puce affiche la date exacte à laquelle elle va atterrir, et un lâcher sans déplacement ne modifie rien.", "section": "components" },
+      { "name": "La règle du mouvement porteur", "body": "Le mouvement ne sert qu'à porter un changement d'état : transitions d'état en 150 ms, entrées de surface en 180–220 ms, enfoncement de bouton en 80 ms. Aucune chorégraphie au chargement, aucune animation décorative, et toute animation est désactivée sous prefers-reduced-motion: reduce.", "section": "components" }
+    ],
+    "dos": [
+      "Do n'écrire les couleurs qu'en noms de jetons (var(--accent), var(--border)) : c'est la seule chose qui fait tenir le thème clair.",
+      "Do passer par le module d'échelle de temps pour toute conversion jour ↔ position, et préserver son inversibilité exacte au jour près.",
+      "Do donner la moitié de la piste aux sept prochains jours : c'est l'horizon de décision du foyer.",
+      "Do dessiner toute nouvelle icône sur la grille 24 au trait 1,7, extrémités arrondies, sans aplat, en currentColor.",
+      "Do mettre en tabular-nums tout chiffre comparable ou changeant.",
+      "Do séparer par une bordure d'un pixel ou un changement de plan tonal avant d'envisager une ombre.",
+      "Do garder 16 px de corps sur les entrées du téléphone, sous peine de zoom automatique au focus sur iOS.",
+      "Do réserver les capitales et l'interlettrage élargi aux étiquettes de structure sous 0,75 rem.",
+      "Do composer différemment sur les deux surfaces : le téléphone capture en une colonne au pouce, le PC corrige en trois colonnes au clavier.",
+      "Do annoncer le résultat d'un geste destructeur ou modifiant avant qu'il ne soit commis."
+    ],
+    "donts": [
+      "Don't employer un emoji comme pictogramme, nulle part, dans aucune des deux surfaces.",
+      "Don't charger une webfont ni introduire une seconde famille : la pile système est la seule police du produit.",
+      "Don't utiliser le jaune, l'orange ou le rouge pour autre chose qu'une échéance — le rouge ayant seul le droit supplémentaire de dire la perte et l'erreur.",
+      "Don't peindre une page ou un grand aplat en menthe : l'accent vit sur des traits, des états et des petites surfaces.",
+      "Don't poser une ombre sans décalage vertical ni flou, ni une ombre sur une carte au repos.",
+      "Don't faire défiler globalement une vue PC : le rail, la barre haute et l'axe restent en place, les données défilent.",
+      "Don't inventer une position sur l'axe pour un lot sans date : la bande « sans date » existe pour ça.",
+      "Don't porter la densité du PC sur le téléphone, ni la parcimonie du téléphone sur le PC.",
+      "Don't animer au chargement : le mouvement ne sert qu'à porter un changement d'état, et cède devant prefers-reduced-motion.",
+      "Don't embarquer d'image générée ou de banque : les seuls rasters livrés sont les icônes d'application, rendues par rsvg-convert depuis les SVG commités à côté d'elles ; les photographies de produits sont chargées à l'exécution depuis Open Food Facts et ne sont jamais empaquetées."
+    ]
+  }
+}
