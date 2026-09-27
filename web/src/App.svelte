@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from './lib/Icon.svelte';
   import ExpiringView from './components/ExpiringView.svelte';
   import Login from './components/Login.svelte';
   import ScanView from './components/ScanView.svelte';
@@ -8,6 +9,8 @@
   import Tabbar from './components/Tabbar.svelte';
   import Toasts from './components/Toasts.svelte';
   import { app } from './lib/state.svelte';
+  import { viewport } from './lib/breakpoint.svelte';
+  import DesktopShell from './desktop/DesktopShell.svelte';
 
   const TITLES = {
     scan: 'Scanner',
@@ -32,7 +35,7 @@
   const subtitle = $derived.by(() => {
     if (!app.summary) return '';
     if (app.tab === 'stock') {
-      return `${app.summary.total_items} articles · ${app.summary.distinct_products} références`;
+      return `${app.summary.total_items} articles · ${app.summary.distinct_products} produits en stock`;
     }
     if (app.tab === 'expiring') {
       return `${app.summary.expired} périmés · ${app.summary.urgent} urgents`;
@@ -46,6 +49,9 @@
   <div class="empty" style="padding-top:35vh">Chargement…</div>
 {:else if app.authRequired && !app.authenticated}
   <Login />
+{:else if viewport.isDesktop}
+  <!-- Le PC ne scanne pas : il corrige, saisit au clavier et donne la vue d'ensemble. -->
+  <DesktopShell />
 {:else}
   <div class="shell">
     <header class="topbar">
@@ -53,7 +59,9 @@
         <h1>{TITLES[app.tab]}</h1>
         {#if subtitle}<div class="sub">{subtitle}</div>{/if}
       </div>
-      <button class="btn ghost" onclick={() => app.refreshAll()} aria-label="Rafraîchir">↻</button>
+      <button class="btn ghost icon-btn" onclick={() => app.refreshAll()} aria-label="Rafraîchir">
+        <Icon name="refresh" />
+      </button>
     </header>
 
     {#if app.offline}

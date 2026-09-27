@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../lib/Icon.svelte';
   import { api } from '../lib/api';
   import { app } from '../lib/state.svelte';
 
@@ -69,12 +70,18 @@
       bind:value={newLabel}
       autocomplete="off"
     />
-    <button class="btn primary" disabled={busy || !newLabel.trim()}>+</button>
+    <button
+      class="btn primary icon-btn"
+      disabled={busy || !newLabel.trim()}
+      aria-label="Ajouter à la liste"
+    >
+      <Icon name="plus" />
+    </button>
   </form>
 
   {#if app.shopping.length === 0}
     <div class="empty">
-      <span class="big" aria-hidden="true">🛒</span>
+      <Icon name="basket" size={44} />
       Liste vide. Elle se remplira toute seule quand un produit sera épuisé ou passera sous
       son seuil.
     </div>
@@ -94,18 +101,18 @@
           <div class="stepper">
             <button
               onclick={() => setQuantity(item.id, item.quantity - 1)}
-              style="width:32px; height:32px; font-size:1rem"
+              style="width:32px; height:32px"
               aria-label="Moins un"
             >
-              −
+              <Icon name="minus" size={15} />
             </button>
             <span class="value" style="font-size:1rem">{item.quantity}</span>
             <button
               onclick={() => setQuantity(item.id, item.quantity + 1)}
-              style="width:32px; height:32px; font-size:1rem"
+              style="width:32px; height:32px"
               aria-label="Plus un"
             >
-              +
+              <Icon name="plus" size={15} />
             </button>
           </div>
           <button
@@ -114,7 +121,7 @@
             onclick={() => remove(item.id)}
             aria-label="Retirer"
           >
-            ✕
+            <Icon name="close" size={16} />
           </button>
         </div>
       {/each}
@@ -127,7 +134,7 @@
               onclick={() => toggle(item.id, false)}
               aria-label="Décocher"
             >
-              ✓
+              <Icon name="check" size={16} />
             </button>
             <div class="grow label truncate">{item.quantity} × {item.label}</div>
           </div>

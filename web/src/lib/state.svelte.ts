@@ -157,9 +157,16 @@ class AppState {
     return this.locations.find((location) => location.id === id)?.name ?? null;
   }
 
+  /** Ce qui sera perdu si personne n'agit : périmé plus urgent.
+   *
+   * Une seule définition pour les deux surfaces — la pastille d'onglet, le
+   * sous-titre du PC et la tuile du téléphone comptaient trois choses
+   * différentes sous trois mots différents. « Cette semaine » informe, elle
+   * n'appelle pas d'action, donc elle n'entre pas dans ce compte.
+   */
   get alertCount(): number {
     if (!this.summary) return 0;
-    return this.summary.expired + this.summary.urgent + this.summary.soon;
+    return this.summary.expired + this.summary.urgent;
   }
 }
 

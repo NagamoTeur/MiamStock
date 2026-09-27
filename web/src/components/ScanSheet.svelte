@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../lib/Icon.svelte';
   import { api } from '../lib/api';
   import { SHELF_PRESETS, addDaysIso, describeExpiry } from '../lib/dates';
   import { app } from '../lib/state.svelte';
@@ -21,6 +22,8 @@
   let expiresOn = $state<string>('');
   let locationId = $state<number | null>(null);
   let manualName = $state('');
+  let manualBrand = $state('');
+  let manualQuantityLabel = $state('');
   let addToShopping = $state(true);
   let busy = $state(false);
 
@@ -53,6 +56,8 @@
           expires_on: expiresOn || null,
           location_id: locationId,
           name: needsName ? manualName.trim() : null,
+          brand: needsName ? manualBrand.trim() || null : null,
+          net_quantity: needsName ? manualQuantityLabel.trim() || null : null,
         }),
       );
       if (created) {
@@ -95,7 +100,7 @@
       {#if product?.image_url}
         <img class="thumb" src={product.image_url} alt="" />
       {:else}
-        <div class="thumb placeholder" aria-hidden="true">🥫</div>
+        <div class="thumb placeholder"><Icon name="jar" size={22} /></div>
       {/if}
       <div class="grow">
         <h2 class="truncate">{product?.name ?? 'Produit inconnu'}</h2>
@@ -103,20 +108,33 @@
           {[product?.brand, product?.net_quantity].filter(Boolean).join(' · ') || lookup.barcode}
         </div>
       </div>
-      <button class="btn ghost" onclick={onclose} aria-label="Fermer">✕</button>
+      <button class="btn ghost icon-btn" onclick={onclose} aria-label="Fermer">
+        <Icon name="close" />
+      </button>
     </div>
 
     {#if needsName}
-      <div class="banner warn">
-        Ce code-barres est inconnu d'Open Food Facts. Donne-lui un nom, il sera enregistré
-        dans ton catalogue.
+      <div class="banner warn stacked">
+        Ce code-barres est inconnu d'Open Food Facts. Décris-le une fois, il rejoint ton
+        catalogue et les scans suivants seront immédiats.
       </div>
-      <input
-        placeholder="Nom du produit"
-        bind:value={manualName}
-        autocomplete="off"
-        style="margin-bottom:.8rem"
-      />
+      <div class="stack" style="margin-bottom:.9rem">
+        <input placeholder="Nom du produit" bind:value={manualName} autocomplete="off" />
+        <div class="row" style="gap:.5rem">
+          <input
+            class="grow"
+            placeholder="Marque (facultatif)"
+            bind:value={manualBrand}
+            autocomplete="off"
+          />
+          <input
+            class="grow"
+            placeholder="Contenance"
+            bind:value={manualQuantityLabel}
+            autocomplete="off"
+          />
+        </div>
+      </div>
     {/if}
 
     {#if lookup.in_stock > 0}
@@ -140,11 +158,11 @@
       <span class="muted">Quantité</span>
       <div class="stepper">
         <button onclick={() => (quantity = Math.max(1, quantity - 1))} aria-label="Moins un">
-          −
+          <Icon name="minus" />
         </button>
         <span class="value">{quantity}</span>
         <button onclick={() => (quantity = Math.min(99, quantity + 1))} aria-label="Plus un">
-          +
+          <Icon name="plus" />
         </button>
       </div>
     </div>
@@ -152,7 +170,7 @@
     {#if mode === 'in'}
       <div class="stack" style="margin-bottom:.9rem">
         <span class="muted">Date limite</span>
-        <div class="chips">
+        <div class="chips scroll">
           <button
             class="chip"
             class:on={expiresOn === ''}
@@ -179,7 +197,7 @@
       {#if app.locations.length}
         <div class="stack" style="margin-bottom:1rem">
           <span class="muted">Emplacement</span>
-          <div class="chips">
+          <div class="chips scroll">
             {#each app.locations as location (location.id)}
               <button
                 class="chip"
@@ -204,7 +222,7 @@
           aria-pressed={addToShopping}
           type="button"
         >
-          {addToShopping ? '✓' : ''}
+          {#if addToShopping}<Icon name="check" size={16} />{/if}
         </button>
         <span class="muted grow">Ajouter aux courses si le stock tombe sous le seuil</span>
       </label>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../lib/Icon.svelte';
   import { app } from '../lib/state.svelte';
   import ProductRow from './ProductRow.svelte';
 
@@ -29,7 +30,7 @@
     oninput={(event) => search(event.currentTarget.value)}
   />
 
-  <div class="chips">
+  <div class="chips scroll">
     <button class="chip" class:on={app.stockFilter === null} onclick={() => filterBy(null)}>
       Tout
     </button>
@@ -46,7 +47,7 @@
 
   {#if app.stock.length === 0}
     <div class="empty">
-      <span class="big" aria-hidden="true">📦</span>
+      <Icon name="crate" size={44} />
       {#if app.stockQuery || app.stockFilter !== null}
         Rien ne correspond à ce filtre.
       {:else}

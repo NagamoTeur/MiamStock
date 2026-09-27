@@ -5,7 +5,7 @@
   --border: #253630;
   --text: #e8f0ea;
   --text-dim: #93a69b;
-  --text-faint: #64766c;
+  --text-faint: #7c8f84;
 
   --accent: #5fd39a;
   --accent-ink: #062018;
@@ -32,16 +32,16 @@
     --border: #dde3dd;
     --text: #131a15;
     --text-dim: #5c6a60;
-    --text-faint: #8b978e;
+    --text-faint: #626f67;
 
-    --accent: #158a5c;
+    --accent: #0f7a50;
     --accent-ink: #ffffff;
     --accent-soft: #dff2e7;
 
-    --ok: #158a5c;
-    --soon: #a9741a;
-    --urgent: #c25a17;
-    --expired: #c4303e;
+    --ok: #0f7a50;
+    --soon: #8a5e00;
+    --urgent: #a44608;
+    --expired: #b8232f;
 
     --shadow: 0 8px 24px rgb(19 26 21 / 0.12);
     color-scheme: light;
@@ -51,6 +51,51 @@
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Les surfaces que le navigateur dessine à notre place portent quand même le
+   design : laissées par défaut, elles appartiennent à aucun système. */
+::selection {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--text);
+}
+
+:root {
+  caret-color: var(--accent);
+  accent-color: var(--accent);
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background-clip: content-box;
+}
+
+/* Les chiffres d'un inventaire s'alignent en colonne ou ne servent à rien. */
+.qty,
+.value,
+.chip-lot .n,
+time,
+td,
+th {
+  font-variant-numeric: tabular-nums;
 }
 
 html,
@@ -209,6 +254,25 @@ button:focus-visible {
   border-color: color-mix(in srgb, var(--expired) 40%, transparent);
 }
 
+/* Bouton dont l'icône est tout le contenu : carré, sans le rembourrage
+   horizontal calibré pour du texte. */
+.btn.icon-btn {
+  padding: 0;
+  width: 46px;
+  flex: none;
+}
+
+.btn.icon-btn.ghost {
+  width: 40px;
+  min-height: 40px;
+}
+
+.stepper button svg,
+.btn svg,
+.tick svg {
+  display: block;
+}
+
 .btn.block {
   width: 100%;
 }
@@ -249,6 +313,20 @@ button:focus-visible {
   scrollbar-width: none;
 }
 
+/* Le fondu est réservé aux rangées qui débordent vraiment. Posé sur toutes,
+   il effaçait le bord de la dernière pastille de barres de filtres qui
+   tenaient largement : le défaut changeait de place, pas de nature. */
+.chips.scroll {
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+
+/* Dans un panneau étroit, mieux vaut passer à la ligne que défiler. */
+.chips.wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  mask-image: none;
+}
+
 .chips::-webkit-scrollbar {
   display: none;
 }
@@ -256,10 +334,14 @@ button:focus-visible {
 /* --- Statuts DLC ---------------------------------------------------------- */
 
 .dot {
+  /* Sans display explicite, un span reste inline : largeur et hauteur ne
+     s'appliquent pas et la pastille disparaît dans les cellules de tableau. */
+  display: inline-block;
   width: 9px;
   height: 9px;
   border-radius: 50%;
   flex: none;
+  vertical-align: 1px;
 }
 
 .status-ok { color: var(--ok); }
@@ -319,14 +401,16 @@ button:focus-visible {
 }
 
 .tabbar .icon {
-  font-size: 1.25rem;
   line-height: 1;
 }
 
 .tabbar .badge {
   position: absolute;
-  top: 6px;
-  right: calc(50% - 22px);
+  top: 4px;
+  right: calc(50% - 26px);
+  /* Un liseré de la couleur du fond détache la pastille de l'icône qu'elle
+     chevauchait, sans avoir à écarter les onglets. */
+  box-shadow: 0 0 0 2px var(--bg-elevated);
 }
 
 /* --- Produits ------------------------------------------------------------- */
@@ -343,7 +427,6 @@ button:focus-visible {
 .thumb.placeholder {
   display: grid;
   place-items: center;
-  font-size: 1.2rem;
   color: var(--text-faint);
 }
 
@@ -400,10 +483,10 @@ button:focus-visible {
   font-size: 0.88rem;
 }
 
-.viewfinder-idle .big {
-  font-size: 2.2rem;
+.viewfinder-idle svg {
   color: var(--accent);
 }
+
 
 .viewfinder video {
   width: 100%;
@@ -608,11 +691,6 @@ button:focus-visible {
   color: var(--text-dim);
 }
 
-.empty .big {
-  font-size: 2rem;
-  display: block;
-  margin-bottom: 0.4rem;
-}
 
 .checkline {
   display: flex;

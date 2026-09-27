@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../lib/Icon.svelte';
   import { app } from '../lib/state.svelte';
   import ProductRow from './ProductRow.svelte';
 
@@ -12,7 +13,7 @@
 <div class="stack">
   {#if app.expiring.length === 0}
     <div class="empty">
-      <span class="big" aria-hidden="true">✅</span>
+      <Icon name="check" size={44} />
       Rien ne presse. Aucune date limite dans les {app.summary?.soon_days ?? 7} prochains jours.
     </div>
   {:else}
