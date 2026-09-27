@@ -113,28 +113,35 @@ fi
 ssh-keyscan -t ed25519 github.com 2>/dev/null >> /root/.ssh/known_hosts
 sort -u /root/.ssh/known_hosts -o /root/.ssh/known_hosts
 
-if ! ssh -o BatchMode=yes -o ConnectTimeout=8 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-    rouge "GitHub refuse cette machine : le dépôt est privé et la clé n'est pas encore autorisée."
+# On teste l'opération réelle plutôt que la bannière SSH : une clé de
+# déploiement ne se présente pas comme une clé de compte, et se fier au texte
+# du message d'accueil donne un faux négatif. `git ls-remote` répond à la seule
+# question qui compte — ce dépôt est-il clonable d'ici ?
+if ! GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10" \
+        git ls-remote "$REPO_SSH" >/dev/null 2>&1; then
+    rouge "Le dépôt n'est pas accessible depuis cette machine."
+    echo
+    jaune "Ce que git répond exactement :"
+    GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10" \
+        git ls-remote "$REPO_SSH" 2>&1 | sed 's/^/  /' | head -5
+    echo
+    jaune "Ce que GitHub répond à cette clé :"
+    ssh -o BatchMode=yes -o ConnectTimeout=10 -T git@github.com 2>&1 | sed 's/^/  /' | head -3
     echo
     jaune "Il s'agit de la clé DE CE CONTENEUR, pas de celle de ton poste :"
     echo
     cat "${DEPLOY_KEY}.pub"
     echo
-    # La commande est donnée prête à coller, IP comprise : se tromper de clé et
-    # autoriser celle de son PC est l'erreur naturelle à ce stade.
     IP_LOCALE="$(hostname -I 2>/dev/null | awk '{print $1}')"
-    jaune "Depuis ton PC, en une commande :"
+    jaune "Pour l'autoriser depuis ton PC, en une commande :"
     echo
     echo "  ssh root@${IP_LOCALE} 'cat ${DEPLOY_KEY}.pub' > /tmp/miamstock-lxc.pub \\"
     echo "    && gh repo deploy-key add /tmp/miamstock-lxc.pub --title \"miamstock-lxc\" --repo NagamoTeur/MiamStock"
     echo
-    jaune "Ou sur github.com → le dépôt → Settings → Deploy keys → Add deploy key,"
-    jaune "en collant le bloc ci-dessus et sans cocher 'Allow write access'."
-    echo
     jaune "Puis relance ce script : il reprendra où il s'est arrêté."
     exit 2
 fi
-vert "GitHub authentifie cette machine."
+vert "Le dépôt est accessible depuis cette machine."
 
 # --- 5. Code source ----------------------------------------------------------
 etape "Dépôt"
