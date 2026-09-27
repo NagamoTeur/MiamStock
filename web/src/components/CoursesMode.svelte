@@ -57,7 +57,7 @@
       <div class="faint">{pris} sur {total}</div>
     </div>
     <div class="jauge" aria-hidden="true">
-      <span style="width:{total ? (pris / total) * 100 : 0}%"></span>
+      <span style="transform:scaleX({total ? pris / total : 0})"></span>
     </div>
   </header>
 
@@ -123,11 +123,15 @@
     overflow: hidden;
   }
 
+  /* Mise à l'échelle plutôt que largeur animée : animer une propriété de mise
+     en page force un recalcul du layout à chaque image. */
   .jauge span {
     display: block;
+    width: 100%;
     height: 100%;
     background: var(--accent);
-    transition: width 0.2s ease;
+    transform-origin: left center;
+    transition: transform 0.2s ease;
   }
 
   .liste {
