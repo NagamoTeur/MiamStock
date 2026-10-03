@@ -5,6 +5,22 @@
   let newLocation = $state('');
   let newKind = $state<'fridge' | 'freezer' | 'pantry' | 'other'>('pantry');
   let busy = $state(false);
+  let objectif = $state<string>('');
+
+  $effect(() => {
+    void api.diarySettings().then((s) => (objectif = s.goal_kcal ? String(s.goal_kcal) : ''));
+  });
+
+  async function enregistrerObjectif() {
+    const valeur = objectif.trim() ? Math.round(Number(objectif)) : null;
+    if (valeur != null && (!Number.isFinite(valeur) || valeur < 500 || valeur > 10000)) {
+      app.toast('Un objectif se situe entre 500 et 10 000 kcal', 'warn');
+      return;
+    }
+    if (await app.guard(() => api.setDiaryGoal(valeur))) {
+      app.toast(valeur ? `Objectif fixé à ${valeur.toLocaleString('fr-FR')} kcal` : 'Objectif retiré');
+    }
+  }
 
   const KINDS = [
     { value: 'fridge', label: 'Réfrigéré' },
@@ -80,6 +96,26 @@
       </div>
       <button class="btn" disabled={busy || !newLocation.trim()}>Ajouter</button>
     </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 .5rem; font-size:1rem">Journal alimentaire</h2>
+    <form class="row" onsubmit={(e) => { e.preventDefault(); void enregistrerObjectif(); }}>
+      <input
+        class="grow"
+        type="number"
+        inputmode="numeric"
+        placeholder="Objectif quotidien"
+        bind:value={objectif}
+        aria-label="Objectif calorique quotidien"
+      />
+      <span class="muted">kcal</span>
+      <button class="btn">Enregistrer</button>
+    </form>
+    <p class="faint" style="margin:.6rem 0 0">
+      Laisse vide pour suivre sans objectif. Les aliments génériques viennent de la
+      table Ciqual de l'ANSES, les produits du commerce d'Open Food Facts.
+    </p>
   </div>
 
   {#if app.summary}

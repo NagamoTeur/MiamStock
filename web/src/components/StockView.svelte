@@ -1,9 +1,11 @@
 <script lang="ts">
   import Icon from '../lib/Icon.svelte';
   import { app } from '../lib/state.svelte';
+  import ExpiringView from './ExpiringView.svelte';
   import ProductRow from './ProductRow.svelte';
 
   let query = $state(app.stockQuery);
+  let aConsommer = $state(false);
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   function search(value: string) {
@@ -31,21 +33,34 @@
   />
 
   <div class="chips scroll">
-    <button class="chip" class:on={app.stockFilter === null} onclick={() => filterBy(null)}>
+    <button
+      class="chip"
+      class:on={aConsommer}
+      onclick={() => (aConsommer = !aConsommer)}
+    >
+      À consommer{#if app.alertCount} · {app.alertCount}{/if}
+    </button>
+    <button
+      class="chip"
+      class:on={!aConsommer && app.stockFilter === null}
+      onclick={() => { aConsommer = false; void filterBy(null); }}
+    >
       Tout
     </button>
     {#each app.locations as location (location.id)}
       <button
         class="chip"
-        class:on={app.stockFilter === location.id}
-        onclick={() => filterBy(location.id)}
+        class:on={!aConsommer && app.stockFilter === location.id}
+        onclick={() => { aConsommer = false; void filterBy(location.id); }}
       >
         {location.name}
       </button>
     {/each}
   </div>
 
-  {#if app.stock.length === 0}
+  {#if aConsommer}
+    <ExpiringView />
+  {:else if app.stock.length === 0}
     <div class="empty">
       <Icon name="crate" size={44} />
       {#if app.stockQuery || app.stockFilter !== null}

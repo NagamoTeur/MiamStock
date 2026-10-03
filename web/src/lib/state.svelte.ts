@@ -1,7 +1,7 @@
 import { ApiError, OfflineError, api } from './api';
 import type { Location, ShoppingItem, StockLine, Summary } from './types';
 
-export type Tab = 'scan' | 'stock' | 'expiring' | 'shopping' | 'settings';
+export type Tab = 'scan' | 'stock' | 'expiring' | 'journal' | 'shopping' | 'settings';
 
 export interface Toast {
   id: number;

@@ -589,3 +589,11 @@ kbd {
   font-size: 0.85em;
   color: var(--text-dim);
 }
+
+/* Le journal alimentaire est une colonne de lecture, pas un tableau : sur un
+   grand écran il garde la largeur d'un téléphone posé au centre. */
+.colonne-repas {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1.2rem 1rem 2rem;
+}

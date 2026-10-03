@@ -1,12 +1,41 @@
 <script lang="ts">
   import Icon from '../lib/Icon.svelte';
   import CoursesMode from './CoursesMode.svelte';
+  import FoodSearch from './FoodSearch.svelte';
+  import type { Food } from '../lib/types';
   import { api } from '../lib/api';
   import { app } from '../lib/state.svelte';
 
   let newLabel = $state('');
   let busy = $state(false);
   let enCourses = $state(false);
+  let enRecherche = $state(false);
+
+  /* Un produit du stock ou d'Open Food Facts s'ajoute par son code-barres,
+     pour garder sa photo, sa marque et son rayon ; un aliment générique n'a
+     pas de code-barres et s'ajoute par son nom. */
+  async function ajouterTrouve(food: Food) {
+    enRecherche = false;
+    const avecCode = food.source === 'catalogue' || food.source === 'off';
+    const item = await app.guard(() =>
+      api.addShopping({
+        barcode: avecCode ? food.ref : null,
+        label: food.brand ? `${food.name}` : food.name,
+        quantity: 1,
+      }),
+    );
+    if (item) {
+      app.toast(`${food.name} ajouté aux courses`);
+      await app.refreshShopping();
+    }
+  }
+
+  async function ajouterLibre(texte: string) {
+    enRecherche = false;
+    if (await app.guard(() => api.addShopping({ label: texte, quantity: 1 }))) {
+      await app.refreshShopping();
+    }
+  }
 
   const open = $derived(app.shopping.filter((item) => !item.checked));
   const done = $derived(app.shopping.filter((item) => item.checked));
@@ -78,6 +107,14 @@
       aria-label="Ajouter à la liste"
     >
       <Icon name="plus" />
+    </button>
+    <button
+      type="button"
+      class="btn icon-btn"
+      onclick={() => (enRecherche = true)}
+      aria-label="Chercher un produit"
+    >
+      <Icon name="search" />
     </button>
   </form>
 
@@ -166,4 +203,13 @@
 
 {#if enCourses}
   <CoursesMode onclose={() => (enCourses = false)} />
+{/if}
+
+{#if enRecherche}
+  <FoodSearch
+    titre="Ajouter aux courses"
+    onclose={() => (enRecherche = false)}
+    onpick={ajouterTrouve}
+    libre={ajouterLibre}
+  />
 {/if}

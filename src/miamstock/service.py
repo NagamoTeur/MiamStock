@@ -60,6 +60,12 @@ def row_to_product(row: sqlite3.Row) -> dict:
         "default_shelf_life_days": row["default_shelf_life_days"],
         "min_quantity": row["min_quantity"],
         "source": row["source"],
+        # Toutes les requêtes ne sélectionnent pas les colonnes nutritionnelles
+        # (la liste du stock n'en a pas besoin) : absentes, elles valent None.
+        **{
+            cle: (row[cle] if cle in row.keys() else None)
+            for cle in ("kcal_100g", "prot_100g", "gluc_100g", "lip_100g", "portion_g")
+        },
     }
 
 
@@ -77,8 +83,9 @@ def upsert_product(conn: sqlite3.Connection, barcode: str, info: dict) -> None:
         conn.execute(
             """
             INSERT INTO products (barcode, name, brand, net_quantity, image_url, categories,
-                                  nutriscore, source, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                  nutriscore, source, kcal_100g, prot_100g, gluc_100g,
+                                  lip_100g, portion_g, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 barcode,
@@ -89,6 +96,11 @@ def upsert_product(conn: sqlite3.Connection, barcode: str, info: dict) -> None:
                 info.get("categories"),
                 info.get("nutriscore"),
                 info.get("source", "off"),
+                info.get("kcal_100g"),
+                info.get("prot_100g"),
+                info.get("gluc_100g"),
+                info.get("lip_100g"),
+                info.get("portion_g"),
                 stamp,
                 stamp,
             ),
@@ -102,6 +114,11 @@ def upsert_product(conn: sqlite3.Connection, barcode: str, info: dict) -> None:
             image_url    = COALESCE(image_url, ?),
             categories   = COALESCE(categories, ?),
             nutriscore   = COALESCE(nutriscore, ?),
+            kcal_100g    = COALESCE(kcal_100g, ?),
+            prot_100g    = COALESCE(prot_100g, ?),
+            gluc_100g    = COALESCE(gluc_100g, ?),
+            lip_100g     = COALESCE(lip_100g, ?),
+            portion_g    = COALESCE(portion_g, ?),
             updated_at   = ?
         WHERE barcode = ?
         """,
@@ -111,6 +128,11 @@ def upsert_product(conn: sqlite3.Connection, barcode: str, info: dict) -> None:
             info.get("image_url"),
             info.get("categories"),
             info.get("nutriscore"),
+            info.get("kcal_100g"),
+            info.get("prot_100g"),
+            info.get("gluc_100g"),
+            info.get("lip_100g"),
+            info.get("portion_g"),
             stamp,
             barcode,
         ),
@@ -155,7 +177,8 @@ def stock_lines(
     rows = conn.execute(
         f"""
         SELECT l.*, p.name, p.brand, p.net_quantity, p.image_url, p.categories, p.nutriscore,
-               p.default_location_id, p.default_shelf_life_days, p.min_quantity, p.source
+               p.default_location_id, p.default_shelf_life_days, p.min_quantity, p.source,
+               p.kcal_100g, p.prot_100g, p.gluc_100g, p.lip_100g, p.portion_g
         FROM lots l
         JOIN products p ON p.barcode = l.barcode
         WHERE {' AND '.join(clauses)}

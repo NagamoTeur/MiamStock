@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './lib/Icon.svelte';
   import ExpiringView from './components/ExpiringView.svelte';
+  import JournalView from './components/JournalView.svelte';
   import Login from './components/Login.svelte';
   import ScanView from './components/ScanView.svelte';
   import SettingsView from './components/SettingsView.svelte';
@@ -16,6 +17,7 @@
     scan: 'Scanner',
     stock: 'Stock',
     expiring: 'À consommer',
+    journal: 'Journal',
     shopping: 'Courses',
     settings: 'Réglages',
   } as const;
@@ -77,6 +79,8 @@
       <StockView />
     {:else if app.tab === 'expiring'}
       <ExpiringView />
+    {:else if app.tab === 'journal'}
+      <JournalView />
     {:else if app.tab === 'shopping'}
       <ShoppingView />
     {:else}
