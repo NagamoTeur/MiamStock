@@ -74,6 +74,31 @@ CREATE TABLE IF NOT EXISTS diary_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_diary_day ON diary_entries(day);
 
+-- Un repas favori : des aliments et leurs quantités, figés au moment où on
+-- l'enregistre, pour le reprendre d'un geste. Une copie plutôt qu'un lien vers
+-- le journal : supprimer un jour ne doit pas vider le favori.
+CREATE TABLE IF NOT EXISTS meal_templates (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+    created_at  TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS meal_template_items (
+    id          INTEGER PRIMARY KEY,
+    template_id INTEGER NOT NULL REFERENCES meal_templates(id) ON DELETE CASCADE,
+    position    INTEGER NOT NULL,
+    label       TEXT    NOT NULL,
+    brand       TEXT,
+    source      TEXT    NOT NULL,
+    ref         TEXT,
+    grams       REAL    NOT NULL CHECK (grams > 0),
+    kcal_100g   REAL    NOT NULL,
+    prot_100g   REAL,
+    gluc_100g   REAL,
+    lip_100g    REAL
+);
+CREATE INDEX IF NOT EXISTS idx_template_items ON meal_template_items(template_id);
+
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL

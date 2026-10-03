@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class LoginIn(BaseModel):
@@ -256,26 +256,54 @@ class SearchOut(BaseModel):
 MEALS = ("petit_dejeuner", "dejeuner", "diner", "collation")
 
 
+MEAL_PATTERN = "^(petit_dejeuner|dejeuner|diner|collation)$"
+
+# Une saisie rapide (« Restaurant, environ 900 kcal ») n'a pas de poids. Elle est
+# rangée comme une portion de 100 g dont les valeurs « pour 100 g » sont les
+# totaux : le calcul des totaux reste le même pour toutes les entrées, et le
+# schéma n'a pas à changer. L'interface sait, à sa source, qu'il ne faut pas
+# afficher de grammes.
+SAISIE_RAPIDE = "rapide"
+GRAMMES_RAPIDE = 100.0
+KCAL_RAPIDE_MAX = 5000
+MACRO_RAPIDE_MAX = 500
+
+
 class DiaryEntryIn(BaseModel):
     day: date
-    meal: str = Field(pattern="^(petit_dejeuner|dejeuner|diner|collation)$")
+    meal: str = Field(pattern=MEAL_PATTERN)
     label: str = Field(min_length=1, max_length=200)
     brand: str | None = Field(default=None, max_length=120)
-    source: str = Field(pattern="^(catalogue|ciqual|off|libre)$")
+    source: str = Field(pattern="^(catalogue|ciqual|off|libre|rapide)$")
     ref: str | None = Field(default=None, max_length=64)
-    grams: float = Field(gt=0, le=5000)
-    kcal_100g: float = Field(ge=0, le=1000)
-    prot_100g: float | None = Field(default=None, ge=0, le=100)
-    gluc_100g: float | None = Field(default=None, ge=0, le=100)
-    lip_100g: float | None = Field(default=None, ge=0, le=100)
+    grams: float = Field(default=GRAMMES_RAPIDE, gt=0, le=5000)
+    kcal_100g: float = Field(ge=0, le=KCAL_RAPIDE_MAX)
+    prot_100g: float | None = Field(default=None, ge=0, le=MACRO_RAPIDE_MAX)
+    gluc_100g: float | None = Field(default=None, ge=0, le=MACRO_RAPIDE_MAX)
+    lip_100g: float | None = Field(default=None, ge=0, le=MACRO_RAPIDE_MAX)
     # « J'ai fini le paquet » : retire une unité du stock en même temps.
     # Jamais coché par défaut — 40 g de Nutella ne vident pas le pot.
     finished_pack: bool = False
 
+    @model_validator(mode="after")
+    def _bornes_selon_la_source(self) -> "DiaryEntryIn":
+        if self.source == SAISIE_RAPIDE:
+            self.grams = GRAMMES_RAPIDE
+            return self
+        # Pour 100 g, rien ne dépasse l'huile (900 kcal) ni 100 g d'un nutriment.
+        if self.kcal_100g > 1000:
+            raise ValueError("Plus de 1 000 kcal pour 100 g : la valeur est sûrement fausse")
+        for macro in (self.prot_100g, self.gluc_100g, self.lip_100g):
+            if macro is not None and macro > 100:
+                raise ValueError("Un nutriment ne dépasse pas 100 g pour 100 g")
+        return self
+
 
 class DiaryEntryPatch(BaseModel):
     grams: float | None = Field(default=None, gt=0, le=5000)
-    meal: str | None = Field(default=None, pattern="^(petit_dejeuner|dejeuner|diner|collation)$")
+    meal: str | None = Field(default=None, pattern=MEAL_PATTERN)
+    # Seulement pour une saisie rapide : on corrige ses calories, pas un poids.
+    kcal_100g: float | None = Field(default=None, ge=0, le=KCAL_RAPIDE_MAX)
 
 
 class DiaryEntryOut(BaseModel):
@@ -304,12 +332,52 @@ class Totals(BaseModel):
     lip: float = 0
 
 
+class MealPreview(BaseModel):
+    """Le résumé d'un repas à reprendre : de quoi le reconnaître sans l'ouvrir."""
+
+    count: int
+    kcal: float
+    labels: list[str]
+
+
+class RepeatSuggestion(MealPreview):
+    """Un repas vide aujourd'hui, et la dernière fois qu'on l'a rempli."""
+
+    meal: str
+    from_day: date
+
+
 class DiaryDayOut(BaseModel):
     day: date
     goal_kcal: int | None = None
     totals: Totals
     meals: dict[str, Totals]
     entries: list[DiaryEntryOut]
+    suggestions: list[RepeatSuggestion] = []
+
+
+class RepeatIn(BaseModel):
+    day: date
+    meal: str = Field(pattern=MEAL_PATTERN)
+    from_day: date
+
+
+class TemplateIn(BaseModel):
+    """Enregistre le contenu d'un repas du journal comme repas favori."""
+
+    name: str = Field(min_length=1, max_length=60)
+    day: date
+    meal: str = Field(pattern=MEAL_PATTERN)
+
+
+class TemplateOut(MealPreview):
+    id: int
+    name: str
+
+
+class ApplyTemplateIn(BaseModel):
+    day: date
+    meal: str = Field(pattern=MEAL_PATTERN)
 
 
 class DiarySettings(BaseModel):

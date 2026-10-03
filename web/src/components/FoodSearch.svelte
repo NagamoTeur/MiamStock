@@ -1,8 +1,12 @@
 <script lang="ts">
   import Icon from '../lib/Icon.svelte';
+  import { alimentDepuisCode } from '../lib/aliments';
   import { api } from '../lib/api';
   import { entier } from '../lib/repas';
-  import type { Food } from '../lib/types';
+  import { cameraAvailable } from '../lib/scanner';
+  import { app } from '../lib/state.svelte';
+  import type { Food, MealTemplate } from '../lib/types';
+  import ScanCode from './ScanCode.svelte';
 
   interface Props {
     titre: string;
@@ -12,9 +16,22 @@
     recents?: boolean;
     /** Proposer d'ajouter le texte tapé tel quel (liste de courses). */
     libre?: (texte: string) => void;
+    /** Proposer une saisie en calories, sans poids (journal). */
+    rapide?: (texte: string) => void;
+    /** Montrer les repas favoris, et ce qu'on fait de celui qu'on choisit. */
+    favori?: (modele: MealTemplate) => void;
+    /** Offrir le scan d'un code-barres ; `'direct'` ouvre la caméra d'emblée. */
+    scan?: boolean | 'direct';
   }
 
-  let { titre, onpick, onclose, recents = false, libre }: Props = $props();
+  let { titre, onpick, onclose, recents = false, libre, rapide, favori, scan = false }: Props =
+    $props();
+
+  const scanPossible = $derived(Boolean(scan) && cameraAvailable());
+  // svelte-ignore state_referenced_locally
+  let scanner = $state(scan === 'direct' && cameraAvailable());
+  let resolution = $state(false);
+  let favoris = $state<MealTemplate[]>([]);
 
   let q = $state('');
   let local = $state<Food[]>([]);
@@ -34,6 +51,41 @@
     if (!recents) return;
     void api.diaryRecent().then((r) => (recentes = r)).catch(() => {});
   });
+
+  $effect(() => {
+    if (!favori) return;
+    void api.templates().then((t) => (favoris = t)).catch(() => {});
+  });
+
+  /* Un code inconnu partout ne bloque pas : on revient à la recherche par nom,
+     qui trouvera l'équivalent générique. */
+  async function codeLu(code: string) {
+    scanner = false;
+    resolution = true;
+    const lookup = await app.guard(() => api.lookup(code));
+    resolution = false;
+    if (!lookup) return;
+    const aliment = alimentDepuisCode(lookup);
+    if (aliment) {
+      onpick(aliment);
+      return;
+    }
+    app.toast("Produit inconnu d'Open Food Facts : cherche-le par son nom", 'warn');
+    champ?.focus();
+  }
+
+  const sansAccents = (t: string) =>
+    t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  const favorisVisibles = $derived.by(() => {
+    const requete = sansAccents(q.trim());
+    if (requete.length < 2) return favoris;
+    return favoris.filter((f) => sansAccents(f.name).includes(requete));
+  });
+
+  function apercu(f: MealTemplate): string {
+    return `${f.labels.slice(0, 3).join(', ')}${f.count > 3 ? '…' : ''} · ${entier(f.kcal)} kcal`;
+  }
 
   function saisir(valeur: string) {
     q = valeur;
@@ -76,11 +128,13 @@
 
   const rien = $derived(
     q.trim().length >= 2 &&
-      dansLeStock.length + generiques.length + duCommerce.length === 0 &&
+      dansLeStock.length + generiques.length + duCommerce.length +
+        (favori ? favorisVisibles.length : 0) === 0 &&
       etatOff !== 'charge',
   );
 
   function detail(f: Food): string {
+    if (f.source === 'rapide') return `saisie rapide · ${entier(f.kcal_100g ?? 0)} kcal`;
     const morceaux = [f.brand];
     morceaux.push(f.kcal_100g != null ? `${entier(f.kcal_100g)} kcal / 100 g` : 'valeurs à compléter');
     return morceaux.filter(Boolean).join(' · ');
@@ -95,6 +149,21 @@
     </span>
     {#if f.in_stock > 0}<span class="pastille">{f.in_stock} en stock</span>{/if}
   </button>
+{/snippet}
+
+{#snippet repasFavoris()}
+  {#if favori && favorisVisibles.length}
+    <h3>Mes repas</h3>
+    {#each favorisVisibles as f (f.id)}
+      <button class="resultat" onclick={() => favori(f)}>
+        <Icon name="star" size={18} />
+        <span class="grow">
+          <span class="nom truncate">{f.name}</span>
+          <span class="faint truncate">{apercu(f)}</span>
+        </span>
+      </button>
+    {/each}
+  {/if}
 {/snippet}
 
 <div
@@ -122,19 +191,43 @@
         autocomplete="off"
         enterkeyhint="search"
       />
+      {#if scanPossible}
+        <button
+          class="btn ghost icon-btn scanner"
+          onclick={() => (scanner = true)}
+          disabled={resolution}
+          aria-label="Scanner un code-barres"
+        >
+          <Icon name="scan" size={20} />
+        </button>
+      {/if}
     </div>
 
     <div class="resultats">
+      {#if resolution}
+        <p class="faint invite">Recherche du produit scanné…</p>
+      {/if}
+
       {#if q.trim().length < 2}
+        {#if rapide}
+          <button class="resultat libre" onclick={() => rapide('')}>
+            <Icon name="pencil" size={18} />
+            <span class="grow">
+              <span class="nom">Saisie rapide</span>
+              <span class="faint">Restaurant, plat maison : juste les calories</span>
+            </span>
+          </button>
+        {/if}
+        {@render repasFavoris()}
         {#if recents && recentes.length}
           <h3>Récents</h3>
           {#each recentes as f (f.source + f.ref + f.name)}
             {@render ligne(f)}
           {/each}
-        {:else}
+        {:else if !favoris.length}
           <p class="faint invite">
             Tape au moins deux lettres. La recherche couvre ton stock, les aliments
-            courants et les produits du commerce.
+            courants et les produits du commerce{scanPossible ? ', ou scanne un code-barres' : ''}.
           </p>
         {/if}
       {:else}
@@ -144,6 +237,14 @@
             <span class="grow">Ajouter « {q.trim()} » tel quel</span>
           </button>
         {/if}
+        {#if rapide}
+          <button class="resultat libre" onclick={() => rapide(q.trim())}>
+            <Icon name="pencil" size={18} />
+            <span class="grow">Saisir « {q.trim()} » en calories</span>
+          </button>
+        {/if}
+
+        {@render repasFavoris()}
 
         {#if dansLeStock.length}
           <h3>Dans ton stock</h3>
@@ -177,6 +278,10 @@
   </div>
 </div>
 
+{#if scanner}
+  <ScanCode titre="Scanner un produit" oncode={codeLu} onclose={() => (scanner = false)} />
+{/if}
+
 <style>
   .recherche {
     height: 88vh;
@@ -207,6 +312,11 @@
 
   .champ:focus-within {
     border-color: var(--accent);
+  }
+
+  .scanner {
+    margin-right: -0.5rem;
+    color: var(--accent);
   }
 
   .resultats {
@@ -248,6 +358,10 @@
 
   .resultat.libre {
     color: var(--accent);
+  }
+
+  .resultat.libre .faint {
+    color: var(--text-faint);
   }
 
   .pastille {

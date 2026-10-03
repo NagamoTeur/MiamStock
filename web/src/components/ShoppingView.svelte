@@ -4,6 +4,7 @@
   import FoodSearch from './FoodSearch.svelte';
   import type { Food } from '../lib/types';
   import { api } from '../lib/api';
+  import { viewport } from '../lib/breakpoint.svelte';
   import { app } from '../lib/state.svelte';
 
   let newLabel = $state('');
@@ -208,6 +209,7 @@
 {#if enRecherche}
   <FoodSearch
     titre="Ajouter aux courses"
+    scan={!viewport.isDesktop}
     onclose={() => (enRecherche = false)}
     onpick={ajouterTrouve}
     libre={ajouterLibre}

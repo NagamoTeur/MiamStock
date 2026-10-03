@@ -23,7 +23,11 @@
   let repas = $state<Meal>(meal ?? repasDuMoment());
   let fini = $state(false);
   let busy = $state(false);
-  let completion = $state<'inutile' | 'encours' | 'echec'>('inutile');
+  // Un produit scanné qu'Open Food Facts connaît sans ses valeurs : rien à compléter.
+  // svelte-ignore state_referenced_locally
+  let completion = $state<'inutile' | 'encours' | 'echec'>(
+    food.source !== 'catalogue' && food.kcal_100g == null ? 'echec' : 'inutile',
+  );
 
   /* Les produits scannés avant l'ajout du journal n'ont pas de valeurs
      nutritionnelles. On les complète à la volée depuis Open Food Facts plutôt

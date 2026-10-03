@@ -4,6 +4,7 @@
   import {
     beep,
     closeCamera,
+    messageCamera,
     openCamera,
     secureContextOk,
     startScanning,
@@ -43,7 +44,7 @@
       session = await startScanning(video, handleCode);
       engine = session.engine;
     } catch (error) {
-      cameraError = (error as Error).message;
+      cameraError = messageCamera(error);
       stop();
     } finally {
       starting = false;

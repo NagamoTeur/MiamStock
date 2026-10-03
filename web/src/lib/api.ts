@@ -1,9 +1,11 @@
 import type {
+  About,
   CatalogEntry,
   DiaryDay,
   DiaryEntry,
   Food,
   Meal,
+  MealTemplate,
   SearchResult,
   ConsumptionEntry,
   HistoryEntry,
@@ -166,6 +168,8 @@ export const api = {
   refreshProduct: (barcode: string) =>
     request<Product>(`/products/${encodeURIComponent(barcode)}/refresh`, { method: 'POST' }),
 
+  about: () => request<About>('/about'),
+
   diary: (day?: string) => request<DiaryDay>(`/diary${day ? `?day=${day}` : ''}`),
   diaryRecent: () => request<Food[]>('/diary/recent'),
   addDiary: (body: {
@@ -182,8 +186,16 @@ export const api = {
     lip_100g?: number | null;
     finished_pack?: boolean;
   }) => request<DiaryEntry>('/diary', { method: 'POST', ...json(body) }),
-  patchDiary: (id: number, body: { grams?: number; meal?: Meal }) =>
+  patchDiary: (id: number, body: { grams?: number; meal?: Meal; kcal_100g?: number }) =>
     request<DiaryEntry>(`/diary/${id}`, { method: 'PATCH', ...json(body) }),
+  repeatMeal: (day: string, meal: Meal, from_day: string) =>
+    request<DiaryDay>('/diary/repeat', { method: 'POST', ...json({ day, meal, from_day }) }),
+  templates: () => request<MealTemplate[]>('/diary/templates'),
+  createTemplate: (name: string, day: string, meal: Meal) =>
+    request<MealTemplate>('/diary/templates', { method: 'POST', ...json({ name, day, meal }) }),
+  applyTemplate: (id: number, day: string, meal: Meal) =>
+    request<DiaryDay>(`/diary/templates/${id}/apply`, { method: 'POST', ...json({ day, meal }) }),
+  deleteTemplate: (id: number) => request<void>(`/diary/templates/${id}`, { method: 'DELETE' }),
   deleteDiary: (id: number) => request<void>(`/diary/${id}`, { method: 'DELETE' }),
   diarySettings: () => request<{ goal_kcal: number | null }>('/diary/settings'),
   setDiaryGoal: (goal_kcal: number | null) =>

@@ -3,18 +3,28 @@
   import { api } from '../lib/api';
   import { addDaysIso, todayIso } from '../lib/dates';
   import { REPAS, entier, repasDuMoment } from '../lib/repas';
+  import { viewport } from '../lib/breakpoint.svelte';
+  import { cameraAvailable } from '../lib/scanner';
   import { app } from '../lib/state.svelte';
-  import type { DiaryDay, DiaryEntry, Food, Meal } from '../lib/types';
+  import type { DiaryDay, DiaryEntry, Food, Meal, MealTemplate, RepeatSuggestion } from '../lib/types';
   import DiaryAdd from './DiaryAdd.svelte';
+  import DiaryQuick from './DiaryQuick.svelte';
   import FoodSearch from './FoodSearch.svelte';
 
   let jour = $state(todayIso());
   let donnees = $state<DiaryDay | null>(null);
   let objectifSaisi = $state('');
 
-  let recherchePour = $state<Meal | null>(null);
+  let recherche = $state<{ meal: Meal; scan: boolean } | null>(null);
   let choisi = $state<{ food: Food; meal: Meal } | null>(null);
+  let rapide = $state<{ nom: string; food?: Food; meal: Meal } | null>(null);
   let ouverte = $state<number | null>(null);
+  let favoriPour = $state<Meal | null>(null);
+  let nomFavori = $state('');
+  let occupe = $state(false);
+
+  // Le scan n'a de sens que sur le téléphone : le PC n'a pas de lecteur.
+  const scanPossible = $derived(!viewport.isDesktop && cameraAvailable());
 
   async function charger() {
     const d = await app.guard(() => api.diary(jour));
@@ -59,6 +69,68 @@
     return donnees?.entries.filter((e) => e.meal === repas) ?? [];
   }
 
+  function repriseDe(repas: Meal): RepeatSuggestion | null {
+    return donnees?.suggestions.find((s) => s.meal === repas) ?? null;
+  }
+
+  /* « Comme hier » quand c'est hier ; sinon le jour de la semaine, plus parlant
+     qu'une date tant qu'on reste dans la semaine. */
+  function libelleReprise(depuis: string): string {
+    if (depuis === addDaysIso(-1, jour)) return estAujourdhui ? 'Comme hier' : 'Comme la veille';
+    const [a, m, j] = depuis.split('-').map(Number);
+    const date = new Date(a!, m! - 1, j!);
+    const ecart = Math.round((new Date(jour).getTime() - new Date(depuis).getTime()) / 86_400_000);
+    if (ecart < 7) {
+      return `Comme ${new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(date)}`;
+    }
+    return `Comme le ${new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(date)}`;
+  }
+
+  function nomDuRepas(repas: Meal): string {
+    return REPAS.find((r) => r.id === repas)?.label ?? repas;
+  }
+
+  async function reprendre(s: RepeatSuggestion) {
+    if (occupe) return;
+    occupe = true;
+    const jourMisAJour = await app.guard(() => api.repeatMeal(jour, s.meal, s.from_day));
+    occupe = false;
+    if (!jourMisAJour) return;
+    donnees = jourMisAJour;
+    app.toast(`${nomDuRepas(s.meal)} repris · ${entier(s.kcal)} kcal`);
+  }
+
+  function choisir(food: Food, meal: Meal) {
+    recherche = null;
+    // Une saisie rapide récente se refait en calories, pas en grammes.
+    if (food.source === 'rapide') rapide = { nom: food.name, food, meal };
+    else choisi = { food, meal };
+  }
+
+  async function appliquerFavori(modele: MealTemplate, meal: Meal) {
+    recherche = null;
+    const jourMisAJour = await app.guard(() => api.applyTemplate(modele.id, jour, meal));
+    if (!jourMisAJour) return;
+    donnees = jourMisAJour;
+    app.toast(`${modele.name} · ${entier(modele.kcal)} kcal`);
+  }
+
+  function preparerFavori(repas: Meal) {
+    favoriPour = favoriPour === repas ? null : repas;
+    nomFavori = nomDuRepas(repas);
+  }
+
+  async function enregistrerFavori(event: Event) {
+    event.preventDefault();
+    const repas = favoriPour;
+    const nom = nomFavori.trim();
+    if (!repas || !nom) return;
+    const modele = await app.guard(() => api.createTemplate(nom, jour, repas));
+    if (!modele) return;
+    favoriPour = null;
+    app.toast(`« ${modele.name} » enregistré dans tes repas`);
+  }
+
   async function enregistrerObjectif() {
     const valeur = Number(objectifSaisi);
     if (!Number.isFinite(valeur) || valeur < 500) {
@@ -73,7 +145,9 @@
 
   async function changerQuantite(entree: DiaryEntry, valeur: number) {
     if (!(valeur > 0)) return;
-    if (await app.guard(() => api.patchDiary(entree.id, { grams: valeur }))) await charger();
+    // Une saisie rapide n'a pas de poids : on y corrige directement les calories.
+    const correction = entree.source === 'rapide' ? { kcal_100g: valeur } : { grams: valeur };
+    if (await app.guard(() => api.patchDiary(entree.id, correction))) await charger();
   }
 
   async function supprimer(entree: DiaryEntry) {
@@ -147,30 +221,63 @@
     {/if}
   </section>
 
-  <button class="btn primary block lg" onclick={() => (recherchePour = repasDuMoment())}>
-    <Icon name="plus" />
-    Ajouter un aliment
-  </button>
+  <div class="row ajouts">
+    <button class="btn primary lg grow" onclick={() => (recherche = { meal: repasDuMoment(), scan: false })}>
+      <Icon name="plus" />
+      Ajouter un aliment
+    </button>
+    {#if scanPossible}
+      <button
+        class="btn lg icon-btn scan"
+        onclick={() => (recherche = { meal: repasDuMoment(), scan: true })}
+        aria-label="Scanner un produit"
+      >
+        <Icon name="scan" />
+      </button>
+    {/if}
+  </div>
 
   {#each REPAS as r (r.id)}
     {@const entrees = entreesDe(r.id)}
+    {@const reprise = repriseDe(r.id)}
     <section class="repas">
       <header>
         <h2 class="grow">{r.label}</h2>
         {#if entrees.length}
           <span class="sous-total">{entier(donnees?.meals[r.id]?.kcal ?? 0)} kcal</span>
+          <button
+            class="btn ghost icon-btn"
+            class:actif={favoriPour === r.id}
+            onclick={() => preparerFavori(r.id)}
+            aria-label="Enregistrer « {r.label} » dans tes repas"
+            aria-expanded={favoriPour === r.id}
+          >
+            <Icon name="star" size={18} />
+          </button>
         {/if}
-        <button class="btn ghost icon-btn" onclick={() => (recherchePour = r.id)} aria-label="Ajouter au {r.label.toLowerCase()}">
+        <button class="btn ghost icon-btn" onclick={() => (recherche = { meal: r.id, scan: false })} aria-label="Ajouter un aliment : {r.label}">
           <Icon name="plus" size={18} />
         </button>
       </header>
+
+      {#if favoriPour === r.id && entrees.length}
+        <form class="favori" onsubmit={enregistrerFavori}>
+          <span class="faint">Le retrouver plus tard dans la recherche, sous « Mes repas » :</span>
+          <div class="row">
+            <input class="grow" bind:value={nomFavori} maxlength="60" aria-label="Nom du repas favori" />
+            <button class="btn" disabled={!nomFavori.trim()}>Enregistrer</button>
+          </div>
+        </form>
+      {/if}
 
       {#each entrees as e (e.id)}
         <div class="entree" class:ouverte={ouverte === e.id}>
           <button class="resume-entree" onclick={() => (ouverte = ouverte === e.id ? null : e.id)}>
             <span class="grow">
               <span class="nom truncate">{e.label}</span>
-              <span class="faint">{entier(e.grams)} g{e.brand ? ` · ${e.brand}` : ''}</span>
+              <span class="faint">
+                {e.source === 'rapide' ? 'saisie rapide' : `${entier(e.grams)} g`}{e.brand ? ` · ${e.brand}` : ''}
+              </span>
             </span>
             <span class="kcal">{entier(e.kcal)}</span>
           </button>
@@ -180,11 +287,11 @@
                 type="number"
                 inputmode="decimal"
                 min="1"
-                value={e.grams}
+                value={e.source === 'rapide' ? Math.round(e.kcal) : e.grams}
                 onchange={(ev) => changerQuantite(e, Number(ev.currentTarget.value))}
-                aria-label="Quantité en grammes"
+                aria-label={e.source === 'rapide' ? 'Calories' : 'Quantité en grammes'}
               />
-              <span class="muted">g</span>
+              <span class="muted">{e.source === 'rapide' ? 'kcal' : 'g'}</span>
               <span class="grow"></span>
               <button class="btn ghost danger" onclick={() => supprimer(e)}>
                 <Icon name="trash" size={16} />
@@ -194,20 +301,48 @@
           {/if}
         </div>
       {:else}
-        <p class="faint vide">Rien pour l'instant.</p>
+        {#if reprise}
+          <button class="reprise" onclick={() => reprendre(reprise)} disabled={occupe}>
+            <Icon name="repeat" size={18} />
+            <span class="grow">
+              <span class="nom">{libelleReprise(reprise.from_day)}</span>
+              <span class="faint truncate">{reprise.labels.join(', ')}</span>
+            </span>
+            <span class="kcal">{entier(reprise.kcal)}</span>
+          </button>
+        {:else}
+          <p class="faint vide">Rien pour l'instant.</p>
+        {/if}
       {/each}
     </section>
   {/each}
 </div>
 
-{#if recherchePour}
+{#if recherche}
+  {@const pour = recherche.meal}
   <FoodSearch
     titre="Ajouter un aliment"
     recents
-    onclose={() => (recherchePour = null)}
-    onpick={(food) => {
-      choisi = { food, meal: recherchePour! };
-      recherchePour = null;
+    scan={scanPossible ? (recherche.scan ? 'direct' : true) : false}
+    onclose={() => (recherche = null)}
+    onpick={(food) => choisir(food, pour)}
+    rapide={(texte) => {
+      recherche = null;
+      rapide = { nom: texte, meal: pour };
+    }}
+    favori={(modele) => appliquerFavori(modele, pour)}
+  />
+{/if}
+
+{#if rapide}
+  <DiaryQuick
+    depart={rapide}
+    meal={rapide.meal}
+    day={jour}
+    onclose={() => (rapide = null)}
+    onadded={() => {
+      rapide = null;
+      void charger();
     }}
   />
 {/if}
@@ -376,5 +511,59 @@
 
   .vide {
     margin: 0.55rem 0 0.2rem;
+  }
+
+  .ajouts {
+    gap: 0.6rem;
+  }
+
+  .ajouts .scan {
+    width: 56px;
+    color: var(--accent);
+  }
+
+  .actif {
+    color: var(--accent);
+  }
+
+  .favori {
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.7rem 0 0.6rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    font-size: 0.85rem;
+  }
+
+  /* La reprise se lit comme une entrée en attente : même rythme qu'une ligne
+     du journal, en retrait d'un cran. */
+  .reprise {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    min-height: 52px;
+    margin-top: 0.35rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
+    border-radius: var(--radius);
+    color: var(--accent);
+    text-align: left;
+  }
+
+  .reprise .grow {
+    display: grid;
+    min-width: 0;
+  }
+
+  .reprise .nom {
+    font-weight: 600;
+  }
+
+  .reprise .kcal {
+    color: var(--text);
+  }
+
+  .reprise:active {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
   }
 </style>
