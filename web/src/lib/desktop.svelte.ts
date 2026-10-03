@@ -9,7 +9,7 @@ import { api } from './api';
 import { app } from './state.svelte';
 import type { CatalogEntry, HistoryEntry, Lot, StockLine, Stats } from './types';
 
-export type DesktopView = 'frise' | 'registre' | 'catalogue' | 'journal';
+export type DesktopView = 'frise' | 'registre' | 'catalogue' | 'journal' | 'repas';
 
 /** Un lot aplati avec son produit : la frise et le registre manipulent ça. */
 export interface FlatLot extends Lot {

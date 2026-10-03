@@ -19,6 +19,11 @@ export interface Product {
   default_shelf_life_days: number | null;
   min_quantity: number;
   source: string;
+  kcal_100g: number | null;
+  prot_100g: number | null;
+  gluc_100g: number | null;
+  lip_100g: number | null;
+  portion_g: number | null;
 }
 
 export interface Lot {
@@ -129,4 +134,58 @@ export interface ConsumptionEntry {
   days_left: number | null;
   suggested_min: number | null;
   reliable: boolean;
+}
+
+export type Meal = 'petit_dejeuner' | 'dejeuner' | 'diner' | 'collation';
+
+export interface Food {
+  source: 'catalogue' | 'ciqual' | 'off' | 'libre';
+  ref: string;
+  name: string;
+  brand: string | null;
+  kcal_100g: number | null;
+  prot_100g: number | null;
+  gluc_100g: number | null;
+  lip_100g: number | null;
+  portion_g: number | null;
+  group: string | null;
+  in_stock: number;
+  image_url: string | null;
+}
+
+export interface SearchResult {
+  query: string;
+  results: Food[];
+  off_unavailable: boolean;
+}
+
+export interface Totals {
+  kcal: number;
+  prot: number;
+  gluc: number;
+  lip: number;
+}
+
+export interface DiaryEntry {
+  id: number;
+  day: string;
+  meal: Meal;
+  label: string;
+  brand: string | null;
+  source: Food['source'];
+  ref: string | null;
+  grams: number;
+  kcal: number;
+  prot: number | null;
+  gluc: number | null;
+  lip: number | null;
+  kcal_100g: number;
+}
+
+export interface DiaryDay {
+  day: string;
+  goal_kcal: number | null;
+  totals: Totals;
+  meals: Record<Meal, Totals>;
+  entries: DiaryEntry[];
 }

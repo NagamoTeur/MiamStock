@@ -7,13 +7,13 @@
   const tabs: { id: Tab; icon: IconName; label: string }[] = [
     { id: 'scan', icon: 'scan', label: 'Scan' },
     { id: 'stock', icon: 'crate', label: 'Stock' },
-    { id: 'expiring', icon: 'clock', label: 'DLC' },
+    { id: 'journal', icon: 'utensils', label: 'Journal' },
     { id: 'shopping', icon: 'basket', label: 'Courses' },
     { id: 'settings', icon: 'sliders', label: 'Réglages' },
   ];
 
   function badgeFor(tab: Tab): number {
-    if (tab === 'expiring') return app.alertCount;
+    if (tab === 'stock') return app.alertCount;
     if (tab === 'shopping') return app.summary?.shopping_open ?? 0;
     return 0;
   }

@@ -7,6 +7,7 @@
   import CommandBar from './CommandBar.svelte';
   import Frise from './Frise.svelte';
   import Journal from './Journal.svelte';
+  import JournalView from '../components/JournalView.svelte';
   import Registre from './Registre.svelte';
   import SidePanel from './SidePanel.svelte';
   import './desktop.css';
@@ -15,7 +16,8 @@
     { id: 'frise', icon: 'clock', label: 'Frise', title: 'La frise des dates' },
     { id: 'registre', icon: 'crate', label: 'Registre', title: 'Registre des lots' },
     { id: 'catalogue', icon: 'jar', label: 'Catalogue', title: 'Catalogue des produits' },
-    { id: 'journal', icon: 'list', label: 'Journal', title: 'Journal et gaspillage' },
+    { id: 'journal', icon: 'list', label: 'Mouvements', title: 'Mouvements et gaspillage' },
+    { id: 'repas', icon: 'utensils', label: 'Journal', title: 'Journal alimentaire' },
   ];
 
   const current = $derived(VIEWS.find((view) => view.id === desk.view)!);
@@ -42,6 +44,7 @@
 
   const subtitle = $derived.by(() => {
     if (!app.summary) return '';
+    if (desk.view === 'repas') return '';
     if (desk.view === 'journal') return `${app.summary.total_items} articles en stock`;
     return `${app.summary.total_items} articles · ${app.summary.distinct_products} produits en stock${
       app.alertCount ? ` · ${app.alertCount} à consommer` : ''
@@ -109,8 +112,10 @@
           <Registre />
         {:else if desk.view === 'catalogue'}
           <Catalogue />
-        {:else}
+        {:else if desk.view === 'journal'}
           <Journal />
+        {:else}
+          <div class="colonne-repas"><JournalView /></div>
         {/if}
 
         {#if desk.selected.size > 0}

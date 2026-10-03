@@ -44,6 +44,16 @@ export const ICONS = {
     'M10 13.8a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 0 1 0-4.4z',
   ],
 
+  // Fourchette et couteau : le journal alimentaire.
+  utensils: [
+    'M5.5 3v4.1a2.5 2.5 0 0 0 5 0V3',
+    'M8 3v3.6',
+    'M8 9.6V21',
+    'M17.2 3c-1.8 1.3-2.9 3.6-2.9 6.3V13h2.9',
+    'M17.2 3v18',
+  ],
+  chevronLeft: ['M14.8 5.8 8.6 12l6.2 6.2'],
+
   // --- Emplacements -------------------------------------------------------
   fridge: ['M6 3h12v18H6z', 'M6 10h12', 'M9 6.2v2.2', 'M9 12.4v2.4'],
   freezer: [

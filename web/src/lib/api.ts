@@ -1,5 +1,10 @@
 import type {
   CatalogEntry,
+  DiaryDay,
+  DiaryEntry,
+  Food,
+  Meal,
+  SearchResult,
   ConsumptionEntry,
   HistoryEntry,
   Location,
@@ -154,6 +159,38 @@ export const api = {
     const suffix = query.toString();
     return request<ConsumptionEntry[]>(`/consumption${suffix ? `?${suffix}` : ''}`);
   },
+
+  search: (q: string, scope: 'local' | 'off' = 'local') =>
+    request<SearchResult>(`/search?q=${encodeURIComponent(q)}&scope=${scope}`),
+
+  refreshProduct: (barcode: string) =>
+    request<Product>(`/products/${encodeURIComponent(barcode)}/refresh`, { method: 'POST' }),
+
+  diary: (day?: string) => request<DiaryDay>(`/diary${day ? `?day=${day}` : ''}`),
+  diaryRecent: () => request<Food[]>('/diary/recent'),
+  addDiary: (body: {
+    day: string;
+    meal: Meal;
+    label: string;
+    brand?: string | null;
+    source: Food['source'];
+    ref?: string | null;
+    grams: number;
+    kcal_100g: number;
+    prot_100g?: number | null;
+    gluc_100g?: number | null;
+    lip_100g?: number | null;
+    finished_pack?: boolean;
+  }) => request<DiaryEntry>('/diary', { method: 'POST', ...json(body) }),
+  patchDiary: (id: number, body: { grams?: number; meal?: Meal }) =>
+    request<DiaryEntry>(`/diary/${id}`, { method: 'PATCH', ...json(body) }),
+  deleteDiary: (id: number) => request<void>(`/diary/${id}`, { method: 'DELETE' }),
+  diarySettings: () => request<{ goal_kcal: number | null }>('/diary/settings'),
+  setDiaryGoal: (goal_kcal: number | null) =>
+    request<{ goal_kcal: number | null }>('/diary/settings', {
+      method: 'PUT',
+      ...json({ goal_kcal }),
+    }),
 
   shopping: () => request<ShoppingItem[]>('/shopping'),
   addShopping: (body: { barcode?: string | null; label?: string | null; quantity?: number }) =>
