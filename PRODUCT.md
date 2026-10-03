@@ -47,6 +47,20 @@ justes et utiles — ils gèrent correctement les quantités — mais la date n'
 plus l'axe structurant de l'expérience. Toute surface qui présuppose des DLC
 renseignées sera majoritairement vide chez cet utilisateur.
 
+### Journal alimentaire
+
+Ajouté à la demande de l'utilisateur pour remplacer Yazio, dans une version
+volontairement simple : calories face à un objectif quotidien, protéines,
+glucides et lipides en petit, quatre repas. **Une seule personne** tient un
+journal — le stock est partagé par le foyer, le journal ne l'est pas.
+
+Le journal ne touche au stock que sur demande explicite (« j'ai fini le
+paquet »), jamais par défaut : le stock compte des unités, le journal des
+grammes, et 40 g de Nutella ne vident pas le pot.
+
+La recherche par nom est commune au journal et à la liste de courses : elle
+sert aussi à préparer les courses sans code-barres.
+
 ## Positioning
 
 Le stock est suivi **par lot**, pas par produit : chaque entrée porte sa propre

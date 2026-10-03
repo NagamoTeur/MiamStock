@@ -17,6 +17,14 @@ SQLite, le tout dans un seul process à héberger sur le Proxmox.
   **par rayon** plutôt que par ordre alphabétique — parce qu'en magasin on suit
   un trajet. Cibles de 60 px, et les lignes cochées se barrent sur place : une
   liste qui se réorganise sous le pouce fait perdre le fil.
+- **Journal alimentaire** : calories du jour face à un objectif, macros en
+  petit, quatre repas. On cherche un aliment par son nom, la portion réelle du
+  produit est proposée par défaut, et les aliments récents se ressaisissent en
+  un geste. Le journal ne retire rien du stock, sauf si on coche « j'ai fini le
+  paquet ».
+- **Recherche par nom** : ton stock d'abord, puis les aliments courants (table
+  Ciqual de l'ANSES, embarquée, sans réseau), puis les produits du commerce
+  (Open Food Facts). Elle sert au journal comme à la liste de courses.
 - **Rythme de consommation** : l'application mesure la vitesse à laquelle chaque
   produit quitte le stock et en déduit le seuil de réappro. Mesuré sur le journal
   réel des sorties, jamais estimé : tant qu'il n'y a pas assez de mouvements
@@ -277,6 +285,15 @@ Quelques décisions qui méritent d'être connues avant de toucher au code :
   diviser par quatre-vingt-dix jours sous-estimerait la consommation d'un facteur
   quatre. Et un rythme tiré de deux mouvements du même jour n'est pas une mesure :
   l'application refuse alors de proposer un seuil.
+- **La recherche tolère les flexions du français, mais par leurs terminaisons
+  réelles.** « complètes » doit trouver « complet », « pommes » trouver
+  « pomme ». Une première version autorisait deux lettres d'écart, et
+  « poulets » devenait alors une forme de « poule » : chercher du poulet
+  renvoyait de la poule. La règle s'appuie donc sur une liste de terminaisons
+  (s, x, e, es, ée, ées), pas sur une longueur.
+- **Une seule décision d'arrondi, à l'affichage.** Le serveur garde deux
+  décimales ; arrondir au dixième côté serveur puis à l'unité côté interface
+  affichait 5 g dans un écran et 6 g dans l'autre pour la même entrée.
 - **Le classement en rayon est grossier, et c'est voulu.** Les catégories d'Open
   Food Facts décrivent un aliment, pas un emplacement en magasin. Se tromper de
   rayon fait perdre dix secondes ; une taxonomie fine serait ingérable à la main.
@@ -309,12 +326,28 @@ est configuré.
 | `GET` | `/history` | Journal des bips (`barcode`, `kind`, `limit`). |
 | `GET` | `/stats` | Entrées, sorties, rebuts et taux de gaspillage. |
 | `GET` | `/consumption` | Rythme par produit, autonomie restante, seuil suggéré. |
+| `GET` | `/search` | Recherche par nom ; `scope=local` (stock + Ciqual, instantané) ou `off`. |
+| `POST` | `/products/{code}/refresh` | Recharge valeurs et catégories depuis Open Food Facts. |
+| `GET`/`POST`/`PATCH`/`DELETE` | `/diary` | Journal alimentaire d'un jour. |
+| `GET` | `/diary/recent` | Aliments récemment saisis, pour les ressaisir. |
+| `GET`/`PUT` | `/diary/settings` | Objectif calorique quotidien. |
 
 Documentation interactive : `/docs`.
 
 ## Données
 
-Les fiches produits viennent d'Open Food Facts, base ouverte et collaborative,
+**Aliments génériques** : table de composition nutritionnelle Ciqual 2020,
+ANSES, diffusée sous Licence Ouverte (Etalab). Elle est convertie par
+`scripts/build_ciqual.py` en un fichier de 224 Ko embarqué dans le paquet
+Python : la recherche d'un aliment courant ne passe jamais par le réseau. Le
+script répare au passage les fichiers XML publiés, qui contiennent des
+caractères `<` et `&` non échappés et que tout parseur strict refuse.
+
+```bash
+.venv/bin/python scripts/build_ciqual.py <dossier des XML Ciqual>
+```
+
+**Produits du commerce** : les fiches viennent d'Open Food Facts, base ouverte et collaborative,
 sans clé d'API. Si un produit manque, tu peux le créer localement avec un nom
 libre — et, tant qu'à faire, [contribuer la fiche](https://world.openfoodfacts.org)
 pour la prochaine personne.
