@@ -61,6 +61,14 @@ grammes, et 40 g de Nutella ne vident pas le pot.
 La recherche par nom est commune au journal et à la liste de courses : elle
 sert aussi à préparer les courses sans code-barres.
 
+Ce qui fait qu'un journal tient dans la durée, c'est le coût de chaque saisie.
+D'où trois raccourcis, chacun pour un cas réel : **« Comme hier »** (on mange
+souvent la même chose au même repas), les **repas favoris** (une habitude qui
+ne revient pas tous les jours), et la **saisie rapide** en calories (restaurant,
+cantine : ce qu'on ne pèsera jamais, et qu'on finit par ne pas noter du tout si
+le journal exige des grammes). Reprendre un repas ou appliquer un favori ne
+touche jamais au stock.
+
 ## Positioning
 
 Le stock est suivi **par lot**, pas par produit : chaque entrée porte sa propre

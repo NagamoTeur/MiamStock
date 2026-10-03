@@ -136,6 +136,24 @@ export async function startScanning(
   };
 }
 
+/** Les erreurs de getUserMedia arrivent en anglais, et dans le jargon du navigateur. */
+export function messageCamera(error: unknown): string {
+  const nom = (error as DOMException)?.name;
+  switch (nom) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return "L'accès à la caméra est refusé. Autorise-le dans les réglages du navigateur, ou tape le code.";
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'Aucune caméra trouvée sur cet appareil. Tape le code à la place.';
+    case 'NotReadableError':
+    case 'AbortError':
+      return 'La caméra est occupée par une autre application.';
+    default:
+      return (error as Error)?.message || "La caméra n'a pas pu s'ouvrir.";
+  }
+}
+
 export function closeCamera(stream: MediaStream | null): void {
   stream?.getTracks().forEach((track) => track.stop());
 }

@@ -18,10 +18,13 @@ SQLite, le tout dans un seul process à héberger sur le Proxmox.
   un trajet. Cibles de 60 px, et les lignes cochées se barrent sur place : une
   liste qui se réorganise sous le pouce fait perdre le fil.
 - **Journal alimentaire** : calories du jour face à un objectif, macros en
-  petit, quatre repas. On cherche un aliment par son nom, la portion réelle du
-  produit est proposée par défaut, et les aliments récents se ressaisissent en
-  un geste. Le journal ne retire rien du stock, sauf si on coche « j'ai fini le
-  paquet ».
+  petit, quatre repas. On cherche un aliment par son nom ou on **scanne son
+  code-barres**, la portion réelle du produit est proposée par défaut, et les
+  aliments récents se ressaisissent en un geste. Un repas vide propose de
+  reprendre **la dernière fois** (« Comme hier »), un repas rempli s'enregistre
+  en **favori** d'une étoile, et la **saisie rapide** note un restaurant en
+  calories, sans rien peser. Le journal ne retire rien du stock, sauf si on
+  coche « j'ai fini le paquet ».
 - **Recherche par nom** : ton stock d'abord, puis les aliments courants (table
   Ciqual de l'ANSES, embarquée, sans réseau), puis les produits du commerce
   (Open Food Facts). Elle sert au journal comme à la liste de courses.
@@ -153,6 +156,40 @@ tailscale serve --bg 8077
 Le port est publié sur `127.0.0.1` uniquement : c'est Tailscale qui expose le
 service, pas Docker. La base vit dans `./data`, monté en volume.
 
+### Mises à jour automatiques
+
+Le script d'installation pose deux timers systemd. Une fois en place, il n'y a
+plus à se connecter au serveur : **un merge sur `main` est en ligne dans les
+5 minutes**.
+
+- `miamstock-maj.timer` lance [`deploy/mise-a-jour.sh`](deploy/mise-a-jour.sh)
+  toutes les 5 minutes. Si `main` a bougé : sauvegarde de la base, construction
+  de l'image — **les tests tournent pendant la construction**, et un test qui
+  échoue l'arrête —, démarrage, puis vérification que c'est bien la nouvelle
+  version qui répond. Au moindre échec, retour automatique au commit précédent.
+  Un commit en échec n'est pas retenté en boucle : il faut un nouveau commit sur
+  `main`, ou `deploy/mise-a-jour.sh --force`.
+- `miamstock-sauvegarde.timer` sauvegarde la base chaque nuit à 3 h 15.
+
+Le résultat de la dernière mise à jour s'affiche dans **Réglages → Version**,
+avec le commit qui tourne : un déploiement raté se voit depuis le téléphone.
+Sur le serveur, l'historique se lit avec `journalctl -u miamstock-maj`.
+
+Pour installer les timers sur un serveur déjà en place, relance simplement le
+script d'installation (il est idempotent) :
+
+```bash
+ssh root@<ip-du-lxc> 'cd /opt/miamstock && git pull --ff-only && bash deploy/install-lxc.sh'
+```
+
+### Vérifications sur GitHub
+
+Chaque PR passe par [`.github/workflows/ci.yml`](.github/workflows/ci.yml) :
+tests de l'API, `svelte-check` et contrôles de l'interface, `shellcheck` des
+scripts de déploiement, puis construction de l'image Docker et démarrage sur une
+base vide (l'interface est servie, la table Ciqual est embarquée, la recherche
+répond). C'est ce qui garantit que `main` est déployable à tout moment.
+
 > LXC non privilégié : Docker y fonctionne, mais il faut activer `keyctl=1` et
 > `nesting=1` dans les options du conteneur, côté Proxmox.
 
@@ -172,12 +209,16 @@ sudo systemctl enable --now miamstock
 ### Sauvegardes
 
 ```bash
-deploy/sauvegarde.sh /var/backups/miamstock
+MIAMSTOCK_DB=/opt/miamstock/data/miamstock.db deploy/sauvegarde.sh /var/backups/miamstock
 ```
 
 Le script passe par `sqlite3 .backup`, qui prend un verrou propre : copier le
 fichier `.db` à chaud produirait une base corrompue dès qu'un bip tombe au
-mauvais moment. Ajoute-le au cron, et laisse le snapshot Proxmox faire le reste.
+mauvais moment. Chaque copie est **relue et vérifiée** (`PRAGMA integrity_check`)
+avant d'être gardée ; les 30 dernières sont conservées. Le timer nocturne s'en
+charge, et une copie à part est prise avant chaque mise à jour, dans
+`/var/backups/miamstock/avant-mise-a-jour`. La marche à suivre pour restaurer
+est en tête du script. Laisse le snapshot Proxmox faire le reste.
 
 ## Deux surfaces, deux métiers
 
@@ -330,7 +371,13 @@ est configuré.
 | `POST` | `/products/{code}/refresh` | Recharge valeurs et catégories depuis Open Food Facts. |
 | `GET`/`POST`/`PATCH`/`DELETE` | `/diary` | Journal alimentaire d'un jour. |
 | `GET` | `/diary/recent` | Aliments récemment saisis, pour les ressaisir. |
+| `POST` | `/diary/repeat` | « Comme hier » : recopie un repas d'un jour précédent. |
+| `GET`/`POST` | `/diary/templates` | Repas favoris : les lister, en enregistrer un depuis le journal. |
+| `POST` | `/diary/templates/{id}/apply` | Ajoute un repas favori à un repas du jour. |
+| `DELETE` | `/diary/templates/{id}` | Retire un repas favori. |
 | `GET`/`PUT` | `/diary/settings` | Objectif calorique quotidien. |
+| `GET` | `/health` | État et commit déployé (sans session : sert au script de mise à jour). |
+| `GET` | `/about` | Version, date de construction, résultat de la dernière mise à jour. |
 
 Documentation interactive : `/docs`.
 

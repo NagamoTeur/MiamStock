@@ -1,0 +1,83 @@
+# Vérifie chaque PR avant le merge. Le serveur se met à jour tout seul depuis
+# main : ce qui passe ici est en ligne cinq minutes après.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Un nouveau push sur la même PR annule la vérification devenue obsolète.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install ".[dev]"
+      - run: python -m pytest -q
+
+  web:
+    name: Interface (types, contrôles, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run check:timescale
+      - run: npm run check:rayons
+      - run: npm run build
+
+  scripts:
+    name: Scripts de déploiement (shellcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: shellcheck -S warning deploy/*.sh
+
+  image:
+    name: Image Docker (démarre et répond)
+    needs: [api, web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Construction
+        run: docker build --build-arg GIT_SHA=ci -t miamstock:ci .
+      # L'image doit démarrer sur une base vide, servir l'interface et embarquer
+      # la table Ciqual : c'est exactement ce qui avait manqué une fois en prod.
+      - name: Démarrage sur une base vide
+        run: |
+          docker run -d --name miam -e MIAMSTOCK_PIN=0000 -p 8077:8077 miamstock:ci
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8077/api/health && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8077/api/health | tee health.json
+          grep -q '"version":"ci"' health.json
+          grep -q '"web_built":true' health.json
+          curl -sf -c cookies -H 'Content-Type: application/json' \
+            -d '{"pin":"0000"}' http://127.0.0.1:8077/api/session
+          curl -sf -b cookies 'http://127.0.0.1:8077/api/search?q=pommes' | tee search.json
+          grep -q '"source":"ciqual"' search.json
+      - name: Journal du conteneur
+        if: failure()
+        run: docker logs miam

@@ -6,4 +6,4 @@ __pycache__/
 *.pyc
 *.egg-info/
 .git/
-tests/
+.pytest_cache/

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from datetime import date, timedelta
 
@@ -583,3 +585,45 @@ def test_ligne_de_courses_porte_de_quoi_deviner_son_rayon(client, locations):
     item = client.get("/api/shopping").json()[0]
     assert item["categories"] is not None
     assert item["location_kind"] == "fridge"
+
+
+# --- Version et mise à jour automatique ----------------------------------------------
+
+
+def test_health_donne_la_version(anon_client):
+    corps = anon_client.get("/api/health").json()
+    assert corps["status"] == "ok"
+    assert corps["version"] == "dev"
+
+
+def test_a_propos_demande_une_session(anon_client):
+    assert anon_client.get("/api/about").status_code == 401
+
+
+def test_a_propos_sans_mise_a_jour(client):
+    corps = client.get("/api/about").json()
+    assert corps == {"version": "dev", "built_at": None, "update": None}
+
+
+def test_a_propos_lit_la_derniere_mise_a_jour(client):
+    from miamstock.config import settings
+
+    etat = {"state": "echec", "commit": "abc1234", "at": "2026-10-03T10:00:00+02:00",
+            "message": "Les tests de abc1234 ont échoué"}
+    chemin = settings.data_dir / "mise-a-jour.json"
+    chemin.write_text(json.dumps(etat), encoding="utf-8")
+    try:
+        assert client.get("/api/about").json()["update"] == etat
+    finally:
+        chemin.unlink()
+
+
+def test_a_propos_tolere_un_fichier_illisible(client):
+    from miamstock.config import settings
+
+    chemin = settings.data_dir / "mise-a-jour.json"
+    chemin.write_text("{pas du json", encoding="utf-8")
+    try:
+        assert client.get("/api/about").json()["update"] is None
+    finally:
+        chemin.unlink()

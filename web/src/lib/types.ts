@@ -139,7 +139,9 @@ export interface ConsumptionEntry {
 export type Meal = 'petit_dejeuner' | 'dejeuner' | 'diner' | 'collation';
 
 export interface Food {
-  source: 'catalogue' | 'ciqual' | 'off' | 'libre';
+  /** `rapide` : une saisie sans poids (« Restaurant, 900 kcal »), rangée comme
+      une portion de 100 g dont les valeurs « pour 100 g » sont les totaux. */
+  source: 'catalogue' | 'ciqual' | 'off' | 'libre' | 'rapide';
   ref: string;
   name: string;
   brand: string | null;
@@ -182,10 +184,40 @@ export interface DiaryEntry {
   kcal_100g: number;
 }
 
+/** De quoi reconnaître un repas sans l'ouvrir. */
+export interface MealPreview {
+  count: number;
+  kcal: number;
+  labels: string[];
+}
+
+/** Un repas vide ce jour-là, et la dernière fois qu'on l'a rempli. */
+export interface RepeatSuggestion extends MealPreview {
+  meal: Meal;
+  from_day: string;
+}
+
+export interface MealTemplate extends MealPreview {
+  id: number;
+  name: string;
+}
+
 export interface DiaryDay {
   day: string;
   goal_kcal: number | null;
   totals: Totals;
   meals: Record<Meal, Totals>;
   entries: DiaryEntry[];
+  suggestions: RepeatSuggestion[];
+}
+
+export interface About {
+  version: string;
+  built_at: string | null;
+  update: {
+    state: 'ok' | 'echec' | 'en_cours';
+    commit: string;
+    at: string;
+    message: string;
+  } | null;
 }

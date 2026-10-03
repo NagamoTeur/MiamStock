@@ -7,7 +7,7 @@ base d'aliments, mais ne le touche que si on le lui demande explicitement.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -16,13 +16,19 @@ from .. import auth
 from ..db import get_conn, log_event, now_iso, transaction
 from ..models import (
     MEALS,
+    SAISIE_RAPIDE,
+    ApplyTemplateIn,
     DiaryDayOut,
     DiaryEntryIn,
     DiaryEntryOut,
     DiaryEntryPatch,
     DiarySettings,
     FoodOut,
+    RepeatIn,
+    RepeatSuggestion,
     SearchOut,
+    TemplateIn,
+    TemplateOut,
     Totals,
 )
 from ..nutrition import chercher_ciqual, chercher_off, mots, pertinence
@@ -171,24 +177,106 @@ def _objectif(conn) -> int | None:
     return int(ligne["value"]) if ligne else None
 
 
-@router.get("/diary", response_model=DiaryDayOut)
-def read_day(day: date | None = None) -> DiaryDayOut:
-    jour = day or date.today()
-    with get_conn() as conn:
-        lignes = conn.execute(
-            "SELECT * FROM diary_entries WHERE day = ? ORDER BY created_at, id",
-            (jour.isoformat(),),
-        ).fetchall()
-        objectif = _objectif(conn)
+# Au-delà, « la dernière fois » n'est plus une habitude : on ne propose rien.
+REPRISE_JOURS = 14
 
+
+def _apercu(lignes) -> dict:
+    return {
+        "count": len(lignes),
+        "kcal": round(sum(l["kcal_100g"] * l["grams"] / 100 for l in lignes), PRECISION),
+        "labels": [l["label"] for l in lignes],
+    }
+
+
+def _suggestions(conn, jour: date, remplis: set[str]) -> list[RepeatSuggestion]:
+    """Pour chaque repas encore vide, la dernière fois qu'on l'a rempli.
+
+    C'est ce qui rend un journal tenable au quotidien : le petit-déjeuner
+    d'aujourd'hui ressemble presque toujours à celui d'hier.
+    """
+    derniers = conn.execute(
+        """
+        SELECT meal, MAX(day) AS from_day FROM diary_entries
+        WHERE day < ? AND day >= ?
+        GROUP BY meal
+        """,
+        (jour.isoformat(), (jour - timedelta(days=REPRISE_JOURS)).isoformat()),
+    ).fetchall()
+    par_repas = {ligne["meal"]: ligne["from_day"] for ligne in derniers}
+
+    suggestions = []
+    for repas in MEALS:
+        if repas in remplis or repas not in par_repas:
+            continue
+        lignes = conn.execute(
+            "SELECT * FROM diary_entries WHERE day = ? AND meal = ? ORDER BY created_at, id",
+            (par_repas[repas], repas),
+        ).fetchall()
+        suggestions.append(
+            RepeatSuggestion(meal=repas, from_day=par_repas[repas], **_apercu(lignes))
+        )
+    return suggestions
+
+
+def _journee(conn, jour: date) -> DiaryDayOut:
+    lignes = conn.execute(
+        "SELECT * FROM diary_entries WHERE day = ? ORDER BY created_at, id",
+        (jour.isoformat(),),
+    ).fetchall()
     entrees = [_vers_sortie(ligne) for ligne in lignes]
     return DiaryDayOut(
         day=jour,
-        goal_kcal=objectif,
+        goal_kcal=_objectif(conn),
         totals=_additionner(entrees),
         meals={repas: _additionner([e for e in entrees if e.meal == repas]) for repas in MEALS},
         entries=entrees,
+        suggestions=_suggestions(conn, jour, {e.meal for e in entrees}),
     )
+
+
+def _recopier(conn, lignes, jour: date, repas: str) -> None:
+    """Recopie des aliments (d'un autre jour ou d'un favori) dans un repas.
+
+    Le stock n'est jamais touché : reprendre son petit-déjeuner n'est pas
+    déclarer qu'on a fini un paquet.
+    """
+    horodatage = now_iso()
+    conn.executemany(
+        """
+        INSERT INTO diary_entries (day, meal, label, brand, source, ref, grams,
+                                   kcal_100g, prot_100g, gluc_100g, lip_100g, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                jour.isoformat(), repas, l["label"], l["brand"], l["source"], l["ref"],
+                l["grams"], l["kcal_100g"], l["prot_100g"], l["gluc_100g"], l["lip_100g"],
+                horodatage,
+            )
+            for l in lignes
+        ],
+    )
+
+
+@router.get("/diary", response_model=DiaryDayOut)
+def read_day(day: date | None = None) -> DiaryDayOut:
+    with get_conn() as conn:
+        return _journee(conn, day or date.today())
+
+
+@router.post("/diary/repeat", response_model=DiaryDayOut)
+def repeat_meal(body: RepeatIn) -> DiaryDayOut:
+    """« Comme hier » : recopie un repas d'un jour précédent."""
+    with get_conn() as conn, transaction(conn):
+        lignes = conn.execute(
+            "SELECT * FROM diary_entries WHERE day = ? AND meal = ? ORDER BY created_at, id",
+            (body.from_day.isoformat(), body.meal),
+        ).fetchall()
+        if not lignes:
+            raise HTTPException(status_code=404, detail="Ce repas est vide ce jour-là")
+        _recopier(conn, lignes, body.day, body.meal)
+        return _journee(conn, body.day)
 
 
 @router.post("/diary", response_model=DiaryEntryOut, status_code=status.HTTP_201_CREATED)
@@ -230,8 +318,18 @@ def add_entry(body: DiaryEntryIn) -> DiaryEntryOut:
 def patch_entry(entry_id: int, body: DiaryEntryPatch) -> DiaryEntryOut:
     champs = body.model_dump(exclude_unset=True)
     with get_conn() as conn, transaction(conn):
-        if conn.execute("SELECT 1 FROM diary_entries WHERE id = ?", (entry_id,)).fetchone() is None:
+        entree = conn.execute(
+            "SELECT source FROM diary_entries WHERE id = ?", (entry_id,)
+        ).fetchone()
+        if entree is None:
             raise HTTPException(status_code=404, detail="Entrée introuvable")
+        # Une saisie rapide se corrige en calories ; un aliment pesé, en grammes.
+        # Changer les valeurs pour 100 g d'un aliment réécrirait sa fiche figée.
+        rapide = entree["source"] == SAISIE_RAPIDE
+        if rapide and "grams" in champs:
+            raise HTTPException(status_code=400, detail="Une saisie rapide se corrige en calories")
+        if not rapide and "kcal_100g" in champs:
+            raise HTTPException(status_code=400, detail="Seule une saisie rapide se corrige en calories")
         if champs:
             affectations = ", ".join(f"{cle} = ?" for cle in champs)
             conn.execute(
@@ -283,6 +381,90 @@ def recent_foods(limit: int = Query(default=15, ge=1, le=50)) -> list[FoodOut]:
         )
         for ligne in lignes
     ]
+
+
+# --- Repas favoris ------------------------------------------------------------------
+
+
+def _favoris(conn, identifiant: int | None = None) -> list[TemplateOut]:
+    modeles = conn.execute(
+        "SELECT * FROM meal_templates"
+        + (" WHERE id = ?" if identifiant is not None else "")
+        + " ORDER BY name COLLATE NOCASE",
+        (identifiant,) if identifiant is not None else (),
+    ).fetchall()
+    sortie = []
+    for modele in modeles:
+        lignes = conn.execute(
+            "SELECT * FROM meal_template_items WHERE template_id = ? ORDER BY position",
+            (modele["id"],),
+        ).fetchall()
+        sortie.append(TemplateOut(id=modele["id"], name=modele["name"], **_apercu(lignes)))
+    return sortie
+
+
+@router.get("/diary/templates", response_model=list[TemplateOut])
+def list_templates() -> list[TemplateOut]:
+    with get_conn() as conn:
+        return _favoris(conn)
+
+
+@router.post("/diary/templates", response_model=TemplateOut, status_code=status.HTTP_201_CREATED)
+def create_template(body: TemplateIn) -> TemplateOut:
+    """Enregistre un repas du journal, tel qu'il est ce jour-là, comme favori."""
+    nom = body.name.strip()
+    if not nom:
+        raise HTTPException(status_code=400, detail="Donne un nom à ce repas")
+    with get_conn() as conn, transaction(conn):
+        lignes = conn.execute(
+            "SELECT * FROM diary_entries WHERE day = ? AND meal = ? ORDER BY created_at, id",
+            (body.day.isoformat(), body.meal),
+        ).fetchall()
+        if not lignes:
+            raise HTTPException(status_code=400, detail="Ce repas est vide")
+        if conn.execute(
+            "SELECT 1 FROM meal_templates WHERE name = ?", (nom,)
+        ).fetchone():
+            raise HTTPException(status_code=409, detail=f"Un repas « {nom} » existe déjà")
+
+        curseur = conn.execute(
+            "INSERT INTO meal_templates (name, created_at) VALUES (?, ?)", (nom, now_iso())
+        )
+        conn.executemany(
+            """
+            INSERT INTO meal_template_items (template_id, position, label, brand, source, ref,
+                                             grams, kcal_100g, prot_100g, gluc_100g, lip_100g)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    curseur.lastrowid, position, l["label"], l["brand"], l["source"], l["ref"],
+                    l["grams"], l["kcal_100g"], l["prot_100g"], l["gluc_100g"], l["lip_100g"],
+                )
+                for position, l in enumerate(lignes)
+            ],
+        )
+        return _favoris(conn, curseur.lastrowid)[0]
+
+
+@router.post("/diary/templates/{template_id}/apply", response_model=DiaryDayOut)
+def apply_template(template_id: int, body: ApplyTemplateIn) -> DiaryDayOut:
+    with get_conn() as conn, transaction(conn):
+        lignes = conn.execute(
+            "SELECT * FROM meal_template_items WHERE template_id = ? ORDER BY position",
+            (template_id,),
+        ).fetchall()
+        if not lignes:
+            raise HTTPException(status_code=404, detail="Repas favori introuvable")
+        _recopier(conn, lignes, body.day, body.meal)
+        return _journee(conn, body.day)
+
+
+@router.delete("/diary/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_template(template_id: int) -> Response:
+    with get_conn() as conn, transaction(conn):
+        conn.execute("DELETE FROM meal_templates WHERE id = ?", (template_id,))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/diary/settings", response_model=DiarySettings)

@@ -1,15 +1,35 @@
 <script lang="ts">
   import { api } from '../lib/api';
   import { app } from '../lib/state.svelte';
+  import type { About, MealTemplate } from '../lib/types';
 
   let newLocation = $state('');
   let newKind = $state<'fridge' | 'freezer' | 'pantry' | 'other'>('pantry');
   let busy = $state(false);
   let objectif = $state<string>('');
 
+  let favoris = $state<MealTemplate[]>([]);
+  let apropos = $state<About | null>(null);
+
   $effect(() => {
     void api.diarySettings().then((s) => (objectif = s.goal_kcal ? String(s.goal_kcal) : ''));
+    void api.templates().then((t) => (favoris = t)).catch(() => {});
+    void api.about().then((a) => (apropos = a)).catch(() => {});
   });
+
+  async function retirerFavori(modele: MealTemplate) {
+    if (!confirm(`Retirer « ${modele.name} » de tes repas ? Le journal n'est pas touché.`)) return;
+    if ((await app.guard(() => api.deleteTemplate(modele.id))) === null) return;
+    favoris = favoris.filter((f) => f.id !== modele.id);
+  }
+
+  const moment = (iso: string) =>
+    new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(iso));
 
   async function enregistrerObjectif() {
     const valeur = objectif.trim() ? Math.round(Number(objectif)) : null;
@@ -116,6 +136,29 @@
       Laisse vide pour suivre sans objectif. Les aliments génériques viennent de la
       table Ciqual de l'ANSES, les produits du commerce d'Open Food Facts.
     </p>
+
+    <h3 class="sous-titre">Repas favoris</h3>
+    {#each favoris as f (f.id)}
+      <div class="checkline">
+        <div class="grow" style="min-width:0">
+          <div class="truncate">{f.name}</div>
+          <div class="faint truncate">
+            {f.count} aliment{f.count > 1 ? 's' : ''} · {Math.round(f.kcal).toLocaleString('fr-FR')} kcal
+          </div>
+        </div>
+        <button
+          class="btn ghost danger"
+          style="min-height:34px; padding:0 .6rem"
+          onclick={() => retirerFavori(f)}
+        >
+          Retirer
+        </button>
+      </div>
+    {:else}
+      <p class="faint" style="margin:0">
+        Aucun pour l'instant. Dans le journal, l'étoile d'un repas l'enregistre ici.
+      </p>
+    {/each}
   </div>
 
   {#if app.summary}
@@ -159,6 +202,34 @@
     {/if}
   </div>
 
+  {#if apropos}
+    <div class="card">
+      <h2 style="margin:0 0 .5rem; font-size:1rem">Version</h2>
+      <p class="muted" style="margin:0">
+        <code>{apropos.version}</code>
+        {#if apropos.built_at}· construite le {moment(apropos.built_at)}{/if}
+      </p>
+      {#if apropos.update?.state === 'echec'}
+        <p class="banner warn stacked" style="margin:.7rem 0 0">
+          Dernière mise à jour ratée, le {moment(apropos.update.at)} : {apropos.update.message}
+        </p>
+      {:else if apropos.update?.state === 'en_cours'}
+        <p class="faint" style="margin:.6rem 0 0">
+          Mise à jour vers <code>{apropos.update.commit}</code> en cours…
+        </p>
+      {:else if apropos.update}
+        <p class="faint" style="margin:.6rem 0 0">
+          Le serveur se met à jour tout seul : dernière vérification réussie le
+          {moment(apropos.update.at)}.
+        </p>
+      {:else}
+        <p class="faint" style="margin:.6rem 0 0">
+          Pas encore de mise à jour automatique enregistrée sur ce serveur.
+        </p>
+      {/if}
+    </div>
+  {/if}
+
   <div class="card">
     <h2 style="margin:0 0 .5rem; font-size:1rem">Données</h2>
     <p class="muted" style="margin:0 0 .7rem">
@@ -175,3 +246,13 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .sous-titre {
+    margin: 1.1rem 0 0.2rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+  }
+</style>

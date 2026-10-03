@@ -288,3 +288,211 @@ def test_poulets_trouve_le_poulet_et_non_la_poule():
     assert not __import__("miamstock.nutrition", fromlist=["meme_mot"]).meme_mot("poule", "poulets")
     premier = chercher_ciqual("poulets", 1)[0]
     assert premier.nom.lower().startswith("poulet")
+
+
+# --- Saisie rapide -------------------------------------------------------------------
+
+
+def rapide(**champs):
+    base = {"day": AUJOURDHUI, "meal": "diner", "label": "Restaurant", "source": "rapide",
+            "kcal_100g": 900}
+    base.update(champs)
+    return base
+
+
+def test_saisie_rapide_compte_ses_calories_telles_quelles(client):
+    entree = client.post("/api/diary", json=rapide()).json()
+    assert entree["kcal"] == 900
+    assert entree["grams"] == 100
+    assert client.get("/api/diary").json()["totals"]["kcal"] == 900
+
+
+def test_saisie_rapide_ignore_un_poids_envoye(client):
+    entree = client.post("/api/diary", json=rapide(grams=350)).json()
+    assert entree["grams"] == 100
+    assert entree["kcal"] == 900
+
+
+def test_saisie_rapide_depasse_1000_kcal(client):
+    assert client.post("/api/diary", json=rapide(kcal_100g=1800)).status_code == 201
+    assert client.post("/api/diary", json=rapide(kcal_100g=9000)).status_code == 422
+
+
+def test_un_aliment_pese_reste_borne_a_1000_kcal_pour_100g(client):
+    assert client.post("/api/diary", json=saisie(kcal_100g=1800)).status_code == 422
+    assert client.post("/api/diary", json=saisie(prot_100g=150)).status_code == 422
+
+
+def test_saisie_rapide_avec_macros(client):
+    entree = client.post("/api/diary", json=rapide(prot_100g=45, gluc_100g=90, lip_100g=38)).json()
+    assert (entree["prot"], entree["gluc"], entree["lip"]) == (45, 90, 38)
+
+
+def test_saisie_rapide_se_corrige_en_calories_pas_en_grammes(client):
+    entree = client.post("/api/diary", json=rapide()).json()
+    assert client.patch(f"/api/diary/{entree['id']}", json={"grams": 50}).status_code == 400
+    corrigee = client.patch(f"/api/diary/{entree['id']}", json={"kcal_100g": 750}).json()
+    assert corrigee["kcal"] == 750
+
+
+def test_un_aliment_pese_ne_se_corrige_pas_en_calories(client):
+    entree = client.post("/api/diary", json=saisie()).json()
+    assert client.patch(f"/api/diary/{entree['id']}", json={"kcal_100g": 10}).status_code == 400
+
+
+def test_saisie_rapide_dans_les_recents(client):
+    client.post("/api/diary", json=rapide(label="Kebab", kcal_100g=800))
+    recent = client.get("/api/diary/recent").json()[0]
+    assert (recent["source"], recent["name"], recent["kcal_100g"]) == ("rapide", "Kebab", 800)
+
+
+def test_saisie_rapide_ne_peut_pas_vider_un_paquet(client):
+    reponse = client.post("/api/diary", json=rapide(finished_pack=True))
+    assert reponse.status_code == 400
+
+
+# --- « Comme hier » ------------------------------------------------------------------
+
+
+HIER = (date.today() - timedelta(days=1)).isoformat()
+
+
+def test_un_repas_vide_propose_la_derniere_fois(client):
+    client.post("/api/diary", json=saisie(day=HIER, meal="petit_dejeuner", label="Skyr",
+                                          grams=150, kcal_100g=60))
+    client.post("/api/diary", json=saisie(day=HIER, meal="petit_dejeuner", label="Muesli",
+                                          grams=50, kcal_100g=380))
+    suggestions = client.get("/api/diary").json()["suggestions"]
+    assert suggestions == [{
+        "meal": "petit_dejeuner", "from_day": HIER, "count": 2, "kcal": 280,
+        "labels": ["Skyr", "Muesli"],
+    }]
+
+
+def test_pas_de_suggestion_pour_un_repas_deja_rempli(client):
+    client.post("/api/diary", json=saisie(day=HIER, meal="dejeuner"))
+    client.post("/api/diary", json=saisie(meal="dejeuner"))
+    assert client.get("/api/diary").json()["suggestions"] == []
+
+
+def test_la_suggestion_prend_le_jour_le_plus_recent(client):
+    avant_hier = (date.today() - timedelta(days=2)).isoformat()
+    client.post("/api/diary", json=saisie(day=avant_hier, meal="diner", label="Soupe"))
+    client.post("/api/diary", json=saisie(day=HIER, meal="diner", label="Pâtes"))
+    suggestion = client.get("/api/diary").json()["suggestions"][0]
+    assert (suggestion["from_day"], suggestion["labels"]) == (HIER, ["Pâtes"])
+
+
+def test_pas_de_suggestion_au_dela_de_deux_semaines(client):
+    lointain = (date.today() - timedelta(days=20)).isoformat()
+    client.post("/api/diary", json=saisie(day=lointain, meal="diner"))
+    assert client.get("/api/diary").json()["suggestions"] == []
+
+
+def test_reprendre_un_repas_le_recopie(client):
+    client.post("/api/diary", json=saisie(day=HIER, meal="petit_dejeuner", label="Skyr",
+                                          grams=150, kcal_100g=60))
+    jour = client.post("/api/diary/repeat", json={
+        "day": AUJOURDHUI, "meal": "petit_dejeuner", "from_day": HIER,
+    }).json()
+    assert [(e["label"], e["grams"]) for e in jour["entries"]] == [("Skyr", 150)]
+    assert jour["totals"]["kcal"] == 90
+    assert jour["suggestions"] == []
+    # La veille reste intacte.
+    assert len(client.get(f"/api/diary?day={HIER}").json()["entries"]) == 1
+
+
+def test_reprendre_un_repas_vide_echoue(client):
+    reponse = client.post("/api/diary/repeat", json={
+        "day": AUJOURDHUI, "meal": "diner", "from_day": HIER,
+    })
+    assert reponse.status_code == 404
+
+
+def test_reprendre_ne_touche_pas_au_stock(client, locations):
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "location_id": locations["pantry"]})
+    client.post("/api/diary", json=saisie(day=HIER, source="catalogue", ref=NUTELLA,
+                                          label="Nutella", grams=15, kcal_100g=539,
+                                          finished_pack=True))
+    client.post("/api/stock/in", json={"barcode": NUTELLA, "location_id": locations["pantry"]})
+    client.post("/api/diary/repeat", json={"day": AUJOURDHUI, "meal": "dejeuner", "from_day": HIER})
+    assert client.get(f"/api/lookup/{NUTELLA}").json()["in_stock"] == 1
+
+
+# --- Repas favoris ---------------------------------------------------------------
+
+
+def petit_dej(client, jour=AUJOURDHUI):
+    client.post("/api/diary", json=saisie(day=jour, meal="petit_dejeuner", label="Skyr",
+                                          grams=150, kcal_100g=60, prot_100g=10))
+    client.post("/api/diary", json=saisie(day=jour, meal="petit_dejeuner", label="Banane",
+                                          grams=120, kcal_100g=90, prot_100g=1))
+
+
+def test_enregistrer_un_repas_favori(client):
+    petit_dej(client)
+    favori = client.post("/api/diary/templates", json={
+        "name": "Petit-déj habituel", "day": AUJOURDHUI, "meal": "petit_dejeuner",
+    })
+    assert favori.status_code == 201
+    assert favori.json() == {
+        "id": favori.json()["id"], "name": "Petit-déj habituel", "count": 2, "kcal": 198,
+        "labels": ["Skyr", "Banane"],
+    }
+    assert [f["name"] for f in client.get("/api/diary/templates").json()] == ["Petit-déj habituel"]
+
+
+def test_un_favori_vide_est_refuse(client):
+    reponse = client.post("/api/diary/templates", json={
+        "name": "Rien", "day": AUJOURDHUI, "meal": "diner",
+    })
+    assert reponse.status_code == 400
+
+
+def test_deux_favoris_du_meme_nom_refuses(client):
+    petit_dej(client)
+    corps = {"name": "Matin", "day": AUJOURDHUI, "meal": "petit_dejeuner"}
+    assert client.post("/api/diary/templates", json=corps).status_code == 201
+    corps["name"] = "matin"
+    assert client.post("/api/diary/templates", json=corps).status_code == 409
+
+
+def test_appliquer_un_favori_a_un_autre_repas(client):
+    petit_dej(client, HIER)
+    favori = client.post("/api/diary/templates", json={
+        "name": "Matin", "day": HIER, "meal": "petit_dejeuner",
+    }).json()
+    jour = client.post(f"/api/diary/templates/{favori['id']}/apply", json={
+        "day": AUJOURDHUI, "meal": "collation",
+    }).json()
+    assert [(e["meal"], e["label"]) for e in jour["entries"]] == [
+        ("collation", "Skyr"), ("collation", "Banane"),
+    ]
+    assert jour["totals"]["prot"] == pytest.approx(16.2)
+
+
+def test_le_favori_survit_a_la_suppression_du_jour(client):
+    petit_dej(client)
+    favori = client.post("/api/diary/templates", json={
+        "name": "Matin", "day": AUJOURDHUI, "meal": "petit_dejeuner",
+    }).json()
+    for entree in client.get("/api/diary").json()["entries"]:
+        client.delete(f"/api/diary/{entree['id']}")
+    assert client.get("/api/diary/templates").json()[0]["count"] == 2
+    assert client.post(f"/api/diary/templates/{favori['id']}/apply", json={
+        "day": AUJOURDHUI, "meal": "petit_dejeuner",
+    }).status_code == 200
+
+
+def test_supprimer_un_favori(client, db):
+    petit_dej(client)
+    favori = client.post("/api/diary/templates", json={
+        "name": "Matin", "day": AUJOURDHUI, "meal": "petit_dejeuner",
+    }).json()
+    assert client.delete(f"/api/diary/templates/{favori['id']}").status_code == 204
+    assert client.get("/api/diary/templates").json() == []
+    # Les aliments du favori partent avec lui.
+    assert db.execute("SELECT COUNT(*) FROM meal_template_items").fetchone()[0] == 0
+    assert client.post(f"/api/diary/templates/{favori['id']}/apply", json={
+        "day": AUJOURDHUI, "meal": "petit_dejeuner",
+    }).status_code == 404

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import auth
 from .config import settings
 from .db import init_db
 from .routers import diary as diary_router
@@ -41,7 +43,33 @@ app.include_router(diary_router.router)
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "web_built": settings.web_dist.joinpath("index.html").exists()}
+    # La version sert au script de mise à jour : il vérifie que le conteneur qui
+    # répond est bien le nouveau, pas l'ancien encore en train de s'arrêter.
+    return {
+        "status": "ok",
+        "version": settings.version,
+        "web_built": settings.web_dist.joinpath("index.html").exists(),
+    }
+
+
+# Écrit par deploy/mise-a-jour.sh dans le volume de données, que le conteneur voit.
+FICHIER_MISE_A_JOUR = "mise-a-jour.json"
+
+
+@app.get("/api/about", dependencies=[Depends(auth.require_session)])
+def about() -> dict:
+    """Ce qui tourne, et comment s'est passée la dernière mise à jour automatique.
+
+    Sans cela, un déploiement raté ne se verrait qu'en se connectant au serveur :
+    l'ancienne version continue de tourner, et rien ne signale qu'elle est ancienne.
+    """
+    mise_a_jour = None
+    chemin = settings.data_dir / FICHIER_MISE_A_JOUR
+    try:
+        mise_a_jour = json.loads(chemin.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    return {"version": settings.version, "built_at": settings.built_at, "update": mise_a_jour}
 
 
 # --- Service de la PWA -------------------------------------------------------

@@ -1,0 +1,10 @@
+[Unit]
+Description=MiamStock — sauvegarde quotidienne à 3 h 15
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+# Si le conteneur était éteint à 3 h 15, la sauvegarde part au démarrage suivant.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
