@@ -1,0 +1,9 @@
+# Sauvegarde quotidienne de la base (voir deploy/sauvegarde.sh).
+
+[Unit]
+Description=MiamStock — sauvegarde de la base
+
+[Service]
+Type=oneshot
+Environment=MIAMSTOCK_DB=/opt/miamstock/data/miamstock.db
+ExecStart=/opt/miamstock/deploy/sauvegarde.sh /var/backups/miamstock

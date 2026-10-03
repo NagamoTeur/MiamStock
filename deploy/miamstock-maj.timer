@@ -1,0 +1,10 @@
+[Unit]
+Description=MiamStock — vérifie toutes les 5 minutes si main a bougé
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target

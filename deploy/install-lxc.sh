@@ -191,6 +191,10 @@ fi
 
 # --- 7. Démarrage ------------------------------------------------------------
 etape "Construction et démarrage"
+# Le commit et la date sont gravés dans l'image : Réglages affiche ce qui tourne.
+GIT_SHA="$(git rev-parse --short HEAD)"
+BUILD_DATE="$(date -Iseconds)"
+export GIT_SHA BUILD_DATE
 docker compose up -d --build
 sleep 3
 
@@ -207,7 +211,26 @@ else
     exit 1
 fi
 
-# --- 8. Suite ----------------------------------------------------------------
+# --- 8. Mises à jour et sauvegardes automatiques -----------------------------
+# Après ça, plus besoin de se connecter au serveur : un merge sur main est en
+# ligne dans les 5 minutes, et la base est sauvegardée chaque nuit.
+etape "Mises à jour et sauvegardes automatiques"
+chmod +x deploy/mise-a-jour.sh deploy/sauvegarde.sh
+if systemd_actif; then
+    for unite in miamstock-maj.service miamstock-maj.timer \
+                 miamstock-sauvegarde.service miamstock-sauvegarde.timer; do
+        install -m 0644 "deploy/$unite" "/etc/systemd/system/$unite"
+    done
+    systemctl daemon-reload
+    activer_service miamstock-maj.timer
+    activer_service miamstock-sauvegarde.timer
+    vert "main est vérifié toutes les 5 minutes ; sauvegarde chaque nuit à 3 h 15."
+    vert "Historique : journalctl -u miamstock-maj   ·   sauvegardes : /var/backups/miamstock"
+else
+    jaune "systemd absent : mises à jour et sauvegardes automatiques non installées."
+fi
+
+# --- 9. Suite ----------------------------------------------------------------
 etape "Il reste à connecter Tailscale"
 if tailscale status >/dev/null 2>&1; then
     vert "Tailscale est déjà connecté."

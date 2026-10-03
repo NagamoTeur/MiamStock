@@ -31,6 +31,10 @@ class Settings:
     urgent_days: int
     soon_days: int
     web_dist: Path
+    # Le commit déployé et la date de construction, posés par la construction de
+    # l'image : c'est ce qui permet de savoir, depuis le téléphone, ce qui tourne.
+    version: str
+    built_at: str | None
 
 
 def _load_or_create_secret(data_dir: Path) -> str:
@@ -93,6 +97,8 @@ def load_settings() -> Settings:
         urgent_days=_env_int("MIAMSTOCK_URGENT_DAYS", 3),
         soon_days=_env_int("MIAMSTOCK_SOON_DAYS", 7),
         web_dist=_default_web_dist(),
+        version=os.environ.get("MIAMSTOCK_VERSION") or "dev",
+        built_at=os.environ.get("MIAMSTOCK_BUILT_AT") or None,
     )
 
 

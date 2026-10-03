@@ -1,0 +1,18 @@
+# Mise à jour automatique de MiamStock depuis GitHub (voir deploy/mise-a-jour.sh).
+# Installé par deploy/install-lxc.sh ; déclenché par miamstock-maj.timer.
+
+[Unit]
+Description=MiamStock — mise à jour automatique
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Pas de HOME par défaut pour un service système : git en a besoin pour sa
+# configuration, et ssh pour retrouver la clé de déploiement.
+Environment=HOME=/root
+ExecStart=/opt/miamstock/deploy/mise-a-jour.sh
+# Une construction complète (npm, pip, tests) peut prendre quelques minutes.
+TimeoutStartSec=20min
+Nice=10

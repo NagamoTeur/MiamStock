@@ -1,6 +1,11 @@
 services:
   miamstock:
-    build: .
+    build:
+      context: .
+      # Posés par deploy/mise-a-jour.sh ; « dev » quand on construit à la main.
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+        BUILD_DATE: ${BUILD_DATE:-}
     image: miamstock:0.1.0
     container_name: miamstock
     restart: unless-stopped
