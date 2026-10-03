@@ -41,6 +41,11 @@ class ProductOut(BaseModel):
     default_shelf_life_days: int | None = None
     min_quantity: int = 0
     source: str = "off"
+    kcal_100g: float | None = None
+    prot_100g: float | None = None
+    gluc_100g: float | None = None
+    lip_100g: float | None = None
+    portion_g: float | None = None
 
 
 class ProductPatch(BaseModel):
@@ -221,6 +226,94 @@ class ConsumptionEntry(BaseModel):
     # Faux tant qu'il n'y a pas assez d'historique : un rythme tiré d'un seul
     # mouvement serait une invention présentée comme une mesure.
     reliable: bool = False
+
+
+class FoodOut(BaseModel):
+    """Un aliment trouvé par la recherche, d'où qu'il vienne. Valeurs pour 100 g."""
+
+    source: str  # catalogue | ciqual | off
+    ref: str
+    name: str
+    brand: str | None = None
+    kcal_100g: float | None = None
+    prot_100g: float | None = None
+    gluc_100g: float | None = None
+    lip_100g: float | None = None
+    portion_g: float | None = None
+    group: str | None = None
+    in_stock: int = 0
+    image_url: str | None = None
+
+
+class SearchOut(BaseModel):
+    query: str
+    results: list[FoodOut]
+    # Vrai si Open Food Facts n'a pas répondu : les résultats locaux restent
+    # valables, mais l'interface doit dire qu'il en manque peut-être.
+    off_unavailable: bool = False
+
+
+MEALS = ("petit_dejeuner", "dejeuner", "diner", "collation")
+
+
+class DiaryEntryIn(BaseModel):
+    day: date
+    meal: str = Field(pattern="^(petit_dejeuner|dejeuner|diner|collation)$")
+    label: str = Field(min_length=1, max_length=200)
+    brand: str | None = Field(default=None, max_length=120)
+    source: str = Field(pattern="^(catalogue|ciqual|off|libre)$")
+    ref: str | None = Field(default=None, max_length=64)
+    grams: float = Field(gt=0, le=5000)
+    kcal_100g: float = Field(ge=0, le=1000)
+    prot_100g: float | None = Field(default=None, ge=0, le=100)
+    gluc_100g: float | None = Field(default=None, ge=0, le=100)
+    lip_100g: float | None = Field(default=None, ge=0, le=100)
+    # « J'ai fini le paquet » : retire une unité du stock en même temps.
+    # Jamais coché par défaut — 40 g de Nutella ne vident pas le pot.
+    finished_pack: bool = False
+
+
+class DiaryEntryPatch(BaseModel):
+    grams: float | None = Field(default=None, gt=0, le=5000)
+    meal: str | None = Field(default=None, pattern="^(petit_dejeuner|dejeuner|diner|collation)$")
+
+
+class DiaryEntryOut(BaseModel):
+    id: int
+    day: date
+    meal: str
+    label: str
+    brand: str | None = None
+    source: str
+    ref: str | None = None
+    grams: float
+    kcal: float
+    prot: float | None = None
+    gluc: float | None = None
+    lip: float | None = None
+    kcal_100g: float
+    prot_100g: float | None = None
+    gluc_100g: float | None = None
+    lip_100g: float | None = None
+
+
+class Totals(BaseModel):
+    kcal: float = 0
+    prot: float = 0
+    gluc: float = 0
+    lip: float = 0
+
+
+class DiaryDayOut(BaseModel):
+    day: date
+    goal_kcal: int | None = None
+    totals: Totals
+    meals: dict[str, Totals]
+    entries: list[DiaryEntryOut]
+
+
+class DiarySettings(BaseModel):
+    goal_kcal: int | None = Field(default=None, ge=500, le=10000)
 
 
 class SummaryOut(BaseModel):

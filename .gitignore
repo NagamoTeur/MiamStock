@@ -1,4 +1,7 @@
-data/
+# Base et clé de session à la racine uniquement. Sans le « / » initial, la
+# règle visait aussi src/miamstock/data/, et la table Ciqual — une donnée
+# du programme, pas de l'utilisateur — ne partait jamais dans le dépôt.
+/data/
 *.egg-info/
 .env
 *.pyc

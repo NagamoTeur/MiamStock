@@ -399,6 +399,43 @@ def read_catalog(
     return [entry for entry in entries if (entry.in_stock > 0) == in_stock]
 
 
+@router.post("/products/{barcode}/refresh", response_model=ProductOut)
+async def refresh_product(barcode: str) -> ProductOut:
+    """Recharge depuis Open Food Facts les données qui lui appartiennent.
+
+    Remplace les valeurs nutritionnelles, les catégories et la photo — ce que
+    la base fournit et qui a pu être mal extrait ou absent lors du premier
+    scan. Ne touche jamais au nom, à la marque ni à la contenance, que
+    l'utilisateur a pu corriger à la main.
+    """
+    barcode = barcode.strip()
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM products WHERE barcode = ?", (barcode,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Produit inconnu")
+
+    info = await fetch_product(barcode)
+    if info is None:
+        raise HTTPException(status_code=404, detail="Open Food Facts ne connaît pas ce produit")
+
+    with get_conn() as conn, transaction(conn):
+        conn.execute(
+            """
+            UPDATE products SET
+                categories = ?, image_url = COALESCE(?, image_url),
+                kcal_100g = ?, prot_100g = ?, gluc_100g = ?, lip_100g = ?, portion_g = ?,
+                updated_at = ?
+            WHERE barcode = ?
+            """,
+            (
+                info.get("categories"), info.get("image_url"),
+                info.get("kcal_100g"), info.get("prot_100g"), info.get("gluc_100g"),
+                info.get("lip_100g"), info.get("portion_g"), now_iso(), barcode,
+            ),
+        )
+        row = conn.execute("SELECT * FROM products WHERE barcode = ?", (barcode,)).fetchone()
+    return ProductOut(**row_to_product(row))
+
+
 @router.get("/history", response_model=list[HistoryEntry])
 def read_history(
     limit: int = Query(default=50, ge=1, le=500),

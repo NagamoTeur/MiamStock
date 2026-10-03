@@ -27,6 +27,8 @@ FIELDS = ",".join(
         "image_front_small_url",
         "image_small_url",
         "nutriscore_grade",
+        "nutriments",
+        "serving_quantity",
     ]
 )
 
@@ -95,7 +97,15 @@ async def fetch_product(barcode: str) -> ProductInfo | None:
         return None
 
     brands = (product.get("brands") or "").split(",")[0].strip() or None
+    from .nutrition import nutriments_off
+
+    valeurs = nutriments_off(product)
     return ProductInfo(
+        kcal_100g=valeurs["kcal"],
+        prot_100g=valeurs["proteines"],
+        gluc_100g=valeurs["glucides"],
+        lip_100g=valeurs["lipides"],
+        portion_g=valeurs["portion_g"],
         name=name,
         brand=brands,
         net_quantity=(product.get("quantity") or "").strip() or None,

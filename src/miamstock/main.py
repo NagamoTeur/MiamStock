@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .db import init_db
+from .routers import diary as diary_router
 from .routers import session as session_router
 from .routers import shopping as shopping_router
 from .routers import stock as stock_router
@@ -35,6 +36,7 @@ app = FastAPI(title="MiamStock", version="0.1.0", lifespan=lifespan)
 app.include_router(session_router.router)
 app.include_router(stock_router.router)
 app.include_router(shopping_router.router)
+app.include_router(diary_router.router)
 
 
 @app.get("/api/health")

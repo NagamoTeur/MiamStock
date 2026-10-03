@@ -18,3 +18,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Sans cette déclaration, setuptools n'embarque que les fichiers .py : la table
+# Ciqual manquerait dans l'image Docker, et la recherche d'aliments génériques
+# serait vide en production sans la moindre erreur visible.
+[tool.setuptools.package-data]
+miamstock = ["data/*.csv"]

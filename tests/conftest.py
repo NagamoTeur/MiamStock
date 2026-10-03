@@ -28,6 +28,11 @@ FAKE_CATALOG = {
         "image_url": "https://example.invalid/nutella.jpg",
         "categories": "pâtes à tartiner",
         "nutriscore": "e",
+        "kcal_100g": 539.0,
+        "prot_100g": 6.3,
+        "gluc_100g": 57.5,
+        "lip_100g": 30.9,
+        "portion_g": 15.0,
     },
     "3033490004743": {
         "name": "Yaourt nature",
@@ -50,6 +55,20 @@ def fake_off(monkeypatch):
 
     monkeypatch.setattr(openfoodfacts, "fetch_product", _fetch)
     monkeypatch.setattr("miamstock.routers.stock.fetch_product", _fetch)
+
+    # La recherche par nom ne sort pas non plus sur le réseau pendant les tests.
+    from miamstock.nutrition import Aliment
+
+    async def _chercher_off(requete: str, limite: int = 10):
+        if requete == "panne":
+            import httpx
+            raise httpx.ConnectError("Open Food Facts injoignable")
+        if "skyr" in requete.lower():
+            return [Aliment(source="off", ref="3033490004743", nom="Skyr", marque="Danone",
+                            kcal=47.9, proteines=10.0, glucides=3.6, lipides=0.2, portion_g=150)]
+        return []
+
+    monkeypatch.setattr("miamstock.routers.diary.chercher_off", _chercher_off)
 
 
 @pytest.fixture(autouse=True)
